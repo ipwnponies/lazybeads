@@ -46,8 +46,8 @@ func (d panelDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 
 	isSelected := index == m.Index()
 
-	icon := t.task.StatusIcon()
 	priority := t.task.PriorityString()
+	issueID := t.task.ID
 	title := t.task.Title
 
 	width := m.Width()
@@ -55,8 +55,9 @@ func (d panelDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 		width = 40
 	}
 
-	// Calculate available width for title (account for icon, priority, spaces)
-	prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", icon, priority))
+	// Calculate available width for title (account for priority, issue ID, spaces)
+	// Format: " P# issue-id title"
+	prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", priority, issueID))
 	maxTitleWidth := width - prefixWidth
 	if maxTitleWidth < 5 {
 		maxTitleWidth = 5
@@ -72,7 +73,7 @@ func (d panelDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 	}
 
 	if isSelected {
-		line := fmt.Sprintf(" %s %s %s", icon, priority, title)
+		line := fmt.Sprintf(" %s %s %s", priority, issueID, title)
 		style := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("15")).
 			Background(lipgloss.Color("#2a4a6d")).
@@ -80,12 +81,12 @@ func (d panelDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 			Width(width)
 		fmt.Fprint(w, style.Render(line))
 	} else {
-		iconStyle := ui.StatusStyle(t.task.Status)
 		priorityStyle := ui.PriorityStyle(t.task.Priority)
+		idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
 
 		line := fmt.Sprintf(" %s %s %s",
-			iconStyle.Render(icon),
 			priorityStyle.Render(priority),
+			idStyle.Render(issueID),
 			title)
 		// Ensure line doesn't exceed width
 		style := lipgloss.NewStyle().Width(width).MaxWidth(width)
