@@ -2,13 +2,11 @@ package app
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,15 +30,14 @@ const (
 	ViewConfirm
 )
 
-// FilterMode represents task filtering
-type FilterMode int
+// PanelFocus represents which panel is focused
+type PanelFocus int
 
 const (
-	FilterOpen FilterMode = iota
-	FilterReady
-	FilterClosed
-	FilterAll
-	filterModeCount // used for cycling
+	FocusInProgress PanelFocus = iota
+	FocusOpen
+	FocusClosed
+	panelCount
 )
 
 // taskItem wraps a Task for the list component
@@ -60,62 +57,6 @@ func (t taskItem) FilterValue() string {
 	return t.task.Title + " " + t.task.ID
 }
 
-// taskDelegate is a custom delegate for rendering task items
-type taskDelegate struct {
-	height   int
-	spacing  int
-	listWidth int
-}
-
-func newTaskDelegate() taskDelegate {
-	return taskDelegate{height: 1, spacing: 0}
-}
-
-func (d taskDelegate) Height() int                             { return d.height }
-func (d taskDelegate) Spacing() int                            { return d.spacing }
-func (d taskDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d taskDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	t, ok := item.(taskItem)
-	if !ok {
-		return
-	}
-
-	isSelected := index == m.Index()
-
-	// Build the line content
-	icon := t.task.StatusIcon()
-	priority := t.task.PriorityString()
-	title := t.task.Title
-
-	// Calculate available width for the row
-	width := m.Width()
-	if width <= 0 {
-		width = 80
-	}
-
-	if isSelected {
-		// Selected: full-width subtle blue highlight, white text
-		line := fmt.Sprintf(" %s %s %s", icon, priority, title)
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")).
-			Background(lipgloss.Color("#2a4a6d")).
-			Bold(true).
-			Width(width)
-		fmt.Fprint(w, style.Render(line))
-	} else {
-		// Normal: colored priority
-		iconStyle := ui.StatusStyle(t.task.Status)
-		priorityStyle := ui.PriorityStyle(t.task.Priority)
-
-		line := fmt.Sprintf(" %s %s %s",
-			iconStyle.Render(icon),
-			priorityStyle.Render(priority),
-			title)
-		fmt.Fprint(w, line)
-	}
-}
-
 // Model is the main application state
 type Model struct {
 	client *beads.Client
@@ -127,14 +68,18 @@ type Model struct {
 	selected *models.Task
 
 	// UI state
-	mode       ViewMode
-	filterMode FilterMode
-	width      int
-	height     int
-	err        error
+	mode         ViewMode
+	focusedPanel PanelFocus
+	width        int
+	height       int
+	err          error
+
+	// Panels (3 vertically stacked)
+	inProgressPanel PanelModel
+	openPanel       PanelModel
+	closedPanel     PanelModel
 
 	// Components
-	list       list.Model
 	detail     viewport.Model
 	filterText textinput.Model
 
@@ -158,16 +103,11 @@ func New() Model {
 	h := help.New()
 	h.ShowAll = false
 
-	// Initialize list - compact single-line items with subtle row highlight
-	delegate := newTaskDelegate()
-
-	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.Title = "Tasks"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(true)
-	l.SetShowHelp(false)
-	l.Styles.Title = ui.PanelTitleStyle
-	l.SetStatusBarItemName("task", "tasks")
+	// Initialize 3 panels
+	inProgressPanel := NewPanel("In Progress")
+	inProgressPanel.SetFocus(true) // Start with in progress focused
+	openPanel := NewPanel("Open")
+	closedPanel := NewPanel("Closed")
 
 	// Initialize detail viewport
 	vp := viewport.New(0, 0)
@@ -187,18 +127,20 @@ func New() Model {
 	formDesc.CharLimit = 1000
 
 	return Model{
-		client:       beads.NewClient(),
-		keys:         ui.DefaultKeyMap(),
-		help:         h,
-		mode:         ViewList,
-		filterMode:   FilterOpen,
-		list:         l,
-		detail:       vp,
-		filterText:   filter,
-		formTitle:    formTitle,
-		formDesc:     formDesc,
-		formPriority: 2,
-		formType:     "task",
+		client:          beads.NewClient(),
+		keys:            ui.DefaultKeyMap(),
+		help:            h,
+		mode:            ViewList,
+		focusedPanel:    FocusInProgress,
+		inProgressPanel: inProgressPanel,
+		openPanel:       openPanel,
+		closedPanel:     closedPanel,
+		detail:          vp,
+		filterText:      filter,
+		formTitle:       formTitle,
+		formDesc:        formDesc,
+		formPriority:    2,
+		formType:        "task",
 	}
 }
 
@@ -239,23 +181,11 @@ func pollTick() tea.Cmd {
 	})
 }
 
-// loadTasks creates a command to load tasks
+// loadTasks creates a command to load all tasks
 func (m Model) loadTasks() tea.Cmd {
 	return func() tea.Msg {
-		var tasks []models.Task
-		var err error
-
-		switch m.filterMode {
-		case FilterReady:
-			tasks, err = m.client.Ready()
-		case FilterClosed:
-			tasks, err = m.client.List("--status=closed")
-		case FilterAll:
-			tasks, err = m.client.List("--all")
-		default:
-			tasks, err = m.client.ListOpen()
-		}
-
+		// Load all tasks so we can distribute them to the 3 panels
+		tasks, err := m.client.List("--all")
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
@@ -310,7 +240,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 		} else {
 			m.tasks = msg.tasks
-			m.updateList()
+			m.distributeTasks()
 		}
 
 	case taskCreatedMsg:
@@ -349,13 +279,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update child components
 	switch m.mode {
 	case ViewList:
+		// Update the focused panel
 		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		cmds = append(cmds, cmd)
-		// Always sync selected item with detail panel
-		if item, ok := m.list.SelectedItem().(taskItem); ok {
-			m.selected = &item.task
+		switch m.focusedPanel {
+		case FocusInProgress:
+			m.inProgressPanel, cmd = m.inProgressPanel.Update(msg)
+		case FocusOpen:
+			m.openPanel, cmd = m.openPanel.Update(msg)
+		case FocusClosed:
+			m.closedPanel, cmd = m.closedPanel.Update(msg)
 		}
+		cmds = append(cmds, cmd)
+		// Sync selected item with detail panel
+		m.selected = m.getSelectedTask()
 	case ViewDetail:
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
@@ -384,10 +320,29 @@ func (m *Model) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
+	// First, let the focused panel handle navigation keys
+	switch m.focusedPanel {
+	case FocusInProgress:
+		if m.inProgressPanel.HandleKey(msg, m.keys) {
+			m.selected = m.getSelectedTask()
+			return nil
+		}
+	case FocusOpen:
+		if m.openPanel.HandleKey(msg, m.keys) {
+			m.selected = m.getSelectedTask()
+			return nil
+		}
+	case FocusClosed:
+		if m.closedPanel.HandleKey(msg, m.keys) {
+			m.selected = m.getSelectedTask()
+			return nil
+		}
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Select):
-		if item, ok := m.list.SelectedItem().(taskItem); ok {
-			m.selected = &item.task
+		if task := m.getSelectedTask(); task != nil {
+			m.selected = task
 			m.updateDetailContent()
 			m.mode = ViewDetail
 		}
@@ -399,21 +354,21 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		m.formTitle.Focus()
 
 	case key.Matches(msg, m.keys.Edit):
-		if item, ok := m.list.SelectedItem().(taskItem); ok {
+		if task := m.getSelectedTask(); task != nil {
 			m.editing = true
-			m.editingID = item.task.ID
-			m.formTitle.SetValue(item.task.Title)
-			m.formDesc.SetValue(item.task.Description)
-			m.formPriority = item.task.Priority
-			m.formType = item.task.Type
+			m.editingID = task.ID
+			m.formTitle.SetValue(task.Title)
+			m.formDesc.SetValue(task.Description)
+			m.formPriority = task.Priority
+			m.formType = task.Type
 			m.mode = ViewForm
 			m.formTitle.Focus()
 		}
 
 	case key.Matches(msg, m.keys.Delete):
-		if item, ok := m.list.SelectedItem().(taskItem); ok {
-			m.confirmMsg = fmt.Sprintf("Delete task %s?", item.task.ID)
-			taskID := item.task.ID
+		if task := m.getSelectedTask(); task != nil {
+			m.confirmMsg = fmt.Sprintf("Delete task %s?", task.ID)
+			taskID := task.ID
 			m.confirmAction = func() tea.Cmd {
 				return func() tea.Msg {
 					err := m.client.Delete(taskID)
@@ -424,9 +379,9 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case key.Matches(msg, m.keys.Close):
-		if item, ok := m.list.SelectedItem().(taskItem); ok {
-			m.confirmMsg = fmt.Sprintf("Close task %s?", item.task.ID)
-			taskID := item.task.ID
+		if task := m.getSelectedTask(); task != nil {
+			m.confirmMsg = fmt.Sprintf("Close task %s?", task.ID)
+			taskID := task.ID
 			m.confirmAction = func() tea.Cmd {
 				return func() tea.Msg {
 					err := m.client.Close(taskID, "")
@@ -437,12 +392,10 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case key.Matches(msg, m.keys.PrevView):
-		m.filterMode = (m.filterMode - 1 + filterModeCount) % filterModeCount
-		return m.loadTasks()
+		m.cyclePanelFocus(-1)
 
 	case key.Matches(msg, m.keys.NextView):
-		m.filterMode = (m.filterMode + 1) % filterModeCount
-		return m.loadTasks()
+		m.cyclePanelFocus(1)
 
 	case key.Matches(msg, m.keys.Refresh):
 		return m.loadTasks()
@@ -611,38 +564,86 @@ func (m *Model) updateSizes() {
 		contentHeight = 0
 	}
 
-	// Wide mode: side-by-side panels
+	// Calculate panel heights (divide into thirds)
+	panelHeight := contentHeight / 3
+	if panelHeight < 4 {
+		panelHeight = 4
+	}
+
+	// Wide mode: panels on left, detail on right
 	if m.width >= 80 {
-		listWidth := m.width/2 - 2
-		m.list.SetSize(listWidth, contentHeight)
+		panelWidth := m.width/2 - 1
+		m.inProgressPanel.SetSize(panelWidth, panelHeight)
+		m.openPanel.SetSize(panelWidth, panelHeight)
+		m.closedPanel.SetSize(panelWidth, panelHeight)
 		m.detail.Width = m.width/2 - 4
 		m.detail.Height = contentHeight - 2
 	} else {
-		// Narrow mode: full width list
-		m.list.SetSize(m.width-2, contentHeight)
+		// Narrow mode: full width panels stacked
+		panelWidth := m.width - 2
+		m.inProgressPanel.SetSize(panelWidth, panelHeight)
+		m.openPanel.SetSize(panelWidth, panelHeight)
+		m.closedPanel.SetSize(panelWidth, panelHeight)
 		m.detail.Width = m.width - 4
 		m.detail.Height = contentHeight - 2
 	}
 }
 
-func (m *Model) updateList() {
-	items := make([]list.Item, len(m.tasks))
-	for i, t := range m.tasks {
-		items[i] = taskItem{task: t}
+func (m *Model) distributeTasks() {
+	var inProgress, open, closed []models.Task
+	for _, t := range m.tasks {
+		switch t.Status {
+		case "in_progress":
+			inProgress = append(inProgress, t)
+		case "open":
+			open = append(open, t)
+		case "closed":
+			closed = append(closed, t)
+		}
 	}
-	m.list.SetItems(items)
+	m.inProgressPanel.SetTasks(inProgress)
+	m.openPanel.SetTasks(open)
+	m.closedPanel.SetTasks(closed)
+}
 
-	// Update title with filter mode
-	switch m.filterMode {
-	case FilterReady:
-		m.list.Title = fmt.Sprintf("Ready Tasks (%d)", len(m.tasks))
-	case FilterClosed:
-		m.list.Title = fmt.Sprintf("Closed Tasks (%d)", len(m.tasks))
-	case FilterAll:
-		m.list.Title = fmt.Sprintf("All Tasks (%d)", len(m.tasks))
-	default:
-		m.list.Title = fmt.Sprintf("Open Tasks (%d)", len(m.tasks))
+func (m *Model) getSelectedTask() *models.Task {
+	switch m.focusedPanel {
+	case FocusInProgress:
+		return m.inProgressPanel.SelectedTask()
+	case FocusOpen:
+		return m.openPanel.SelectedTask()
+	case FocusClosed:
+		return m.closedPanel.SelectedTask()
 	}
+	return nil
+}
+
+func (m *Model) cyclePanelFocus(direction int) {
+	// Clear focus from current panel
+	switch m.focusedPanel {
+	case FocusInProgress:
+		m.inProgressPanel.SetFocus(false)
+	case FocusOpen:
+		m.openPanel.SetFocus(false)
+	case FocusClosed:
+		m.closedPanel.SetFocus(false)
+	}
+
+	// Cycle to next panel
+	m.focusedPanel = PanelFocus((int(m.focusedPanel) + direction + int(panelCount)) % int(panelCount))
+
+	// Set focus on new panel
+	switch m.focusedPanel {
+	case FocusInProgress:
+		m.inProgressPanel.SetFocus(true)
+	case FocusOpen:
+		m.openPanel.SetFocus(true)
+	case FocusClosed:
+		m.closedPanel.SetFocus(true)
+	}
+
+	// Update selected task for detail panel
+	m.selected = m.getSelectedTask()
 }
 
 func (m *Model) updateDetailContent() {
@@ -742,39 +743,38 @@ func (m Model) viewMain() string {
 
 	// Title bar
 	title := ui.TitleStyle.Render("lazybeads")
-	filterInfo := m.filterModeString()
+	focusInfo := m.focusPanelString()
 	titleLine := lipgloss.JoinHorizontal(
 		lipgloss.Left,
 		title,
-		strings.Repeat(" ", max(0, m.width-lipgloss.Width(title)-lipgloss.Width(filterInfo)-2)),
-		ui.HelpDescStyle.Render(filterInfo),
+		strings.Repeat(" ", max(0, m.width-lipgloss.Width(title)-lipgloss.Width(focusInfo)-2)),
+		ui.HelpDescStyle.Render(focusInfo),
 	)
 	b.WriteString(titleLine + "\n")
 
 	// Content area
 	contentHeight := m.height - 4
 
+	// Stack 3 panels vertically
+	leftColumn := lipgloss.JoinVertical(lipgloss.Left,
+		m.inProgressPanel.View(),
+		m.openPanel.View(),
+		m.closedPanel.View(),
+	)
+
 	if m.width >= 80 {
-		// Wide mode: two panels - highlight focused panel
-		listStyle := ui.PanelStyle
+		// Wide mode: panels on left, detail on right
 		detailStyle := ui.PanelStyle
-		if m.mode == ViewList {
-			listStyle = ui.FocusedPanelStyle
-		} else if m.mode == ViewDetail {
+		if m.mode == ViewDetail {
 			detailStyle = ui.FocusedPanelStyle
 		}
-
-		listPanel := listStyle.
-			Width(m.width/2 - 2).
-			Height(contentHeight).
-			Render(m.list.View())
 
 		detailContent := ""
 		if m.selected != nil {
 			m.updateDetailContent()
 			detailContent = m.detail.View()
 		} else {
-			detailContent = ui.HelpDescStyle.Render("No tasks")
+			detailContent = ui.HelpDescStyle.Render("Select a task to view details")
 		}
 
 		detailPanel := detailStyle.
@@ -782,14 +782,10 @@ func (m Model) viewMain() string {
 			Height(contentHeight).
 			Render(detailContent)
 
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, listPanel, detailPanel))
+		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, detailPanel))
 	} else {
-		// Narrow mode: list only
-		listPanel := ui.FocusedPanelStyle.
-			Width(m.width - 2).
-			Height(contentHeight).
-			Render(m.list.View())
-		b.WriteString(listPanel)
+		// Narrow mode: panels only
+		b.WriteString(leftColumn)
 	}
 
 	b.WriteString("\n")
@@ -900,15 +896,14 @@ func (m Model) viewHelp() string {
 
 	helpContent := `
 Navigation
-  j/k, ↑/↓    Move up/down
+  j/k, ↑/↓    Move up/down in focused panel
   g/G         Jump to top/bottom
   ^u/^d       Page up/down
 
-Views (h/l to cycle)
-  open        Show open tasks
-  ready       Show ready tasks (no blockers)
-  closed      Show closed tasks
-  all         Show all tasks
+Panels (h/l to cycle focus)
+  In Progress Tasks with status "in_progress"
+  Open        Tasks with status "open"
+  Closed      Tasks with status "closed"
 
 Actions
   enter       View task details
@@ -917,7 +912,6 @@ Actions
   c           Close selected task
   d           Delete selected task
   R           Refresh list
-  /           Search/filter
 
 General
   ?           Toggle this help
@@ -942,16 +936,16 @@ func (m Model) viewConfirm() string {
 	return b.String()
 }
 
-func (m Model) filterModeString() string {
-	switch m.filterMode {
-	case FilterReady:
-		return "[ready]"
-	case FilterClosed:
-		return "[closed]"
-	case FilterAll:
-		return "[all]"
-	default:
+func (m Model) focusPanelString() string {
+	switch m.focusedPanel {
+	case FocusInProgress:
+		return "[in progress]"
+	case FocusOpen:
 		return "[open]"
+	case FocusClosed:
+		return "[closed]"
+	default:
+		return ""
 	}
 }
 
@@ -961,8 +955,8 @@ func (m Model) renderHelpBar() string {
 		desc string
 	}{
 		{"j/k", "nav"},
-		{"h/l", "view"},
-		{"enter", "focus"},
+		{"h/l", "panel"},
+		{"enter", "detail"},
 		{"a", "add"},
 		{"e", "edit"},
 		{"c", "close"},
