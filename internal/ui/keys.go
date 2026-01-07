@@ -17,7 +17,6 @@ type KeyMap struct {
 	Add     key.Binding
 	Edit    key.Binding
 	Delete  key.Binding
-	Close   key.Binding
 	Refresh key.Binding
 
 	// Field-specific editing
@@ -89,10 +88,6 @@ func DefaultKeyMap() KeyMap {
 		Delete: key.NewBinding(
 			key.WithKeys("x"),
 			key.WithHelp("x", "delete"),
-		),
-		Close: key.NewBinding(
-			key.WithKeys("c"),
-			key.WithHelp("c", "close"),
 		),
 		Refresh: key.NewBinding(
 			key.WithKeys("R"),
@@ -193,7 +188,7 @@ func (k KeyMap) ShortHelp() []key.Binding {
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown},
-		{k.Select, k.Add, k.Edit, k.Delete, k.Close, k.Refresh},
+		{k.Select, k.Add, k.Edit, k.Delete, k.Refresh},
 		{k.Filter, k.Ready, k.Open, k.All},
 		{k.Help, k.Quit, k.Cancel},
 	}

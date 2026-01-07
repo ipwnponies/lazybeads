@@ -420,19 +420,6 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			m.mode = ViewConfirm
 		}
 
-	case key.Matches(msg, m.keys.Close):
-		if task := m.getSelectedTask(); task != nil {
-			m.confirmMsg = fmt.Sprintf("Close task %s?", task.ID)
-			taskID := task.ID
-			m.confirmAction = func() tea.Cmd {
-				return func() tea.Msg {
-					err := m.client.Close(taskID, "")
-					return taskClosedMsg{err: err}
-				}
-			}
-			m.mode = ViewConfirm
-		}
-
 	case key.Matches(msg, m.keys.PrevView):
 		m.cyclePanelFocus(-1)
 
@@ -448,6 +435,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, m.keys.EditTitle):
 		if task := m.getSelectedTask(); task != nil {
 			m.modal = ui.NewInputModal("Edit Title", task.Title, 50)
+			m.modal.Subtitle = task.ID
 			m.mode = ViewEditTitle
 		}
 
@@ -459,6 +447,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				{Label: "closed", Value: "closed"},
 			}
 			m.modal = ui.NewSelectModal("Status", options, task.Status, 30)
+			m.modal.Subtitle = task.ID
 			m.mode = ViewEditStatus
 		}
 
@@ -472,6 +461,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				{Label: "P4 (backlog)", Value: "4"},
 			}
 			m.modal = ui.NewSelectModal("Priority", options, fmt.Sprintf("%d", task.Priority), 30)
+			m.modal.Subtitle = task.ID
 			m.mode = ViewEditPriority
 		}
 
@@ -485,6 +475,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				{Label: "chore", Value: "chore"},
 			}
 			m.modal = ui.NewSelectModal("Type", options, task.Type, 30)
+			m.modal.Subtitle = task.ID
 			m.mode = ViewEditType
 		}
 
@@ -1187,7 +1178,6 @@ Actions
   enter       View task details
   a           Add new task
   e           Edit all fields (form)
-  c           Close selected task
   x           Delete selected task
   R           Refresh list
 
@@ -1255,8 +1245,7 @@ func (m Model) renderHelpBar() string {
 		{"j/k", "nav"},
 		{"h/l", "panel"},
 		{"enter", "detail"},
-		{"t/s/p/y/d", "edit fields"},
-		{"c", "close"},
+		{"t/s/p/y/d", "edit"},
 		{"x", "delete"},
 		{"?", "help"},
 		{"q", "quit"},

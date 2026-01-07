@@ -23,9 +23,10 @@ type SelectOption struct {
 
 // Modal represents a centered overlay modal
 type Modal struct {
-	Type  ModalType
-	Title string
-	Width int
+	Type     ModalType
+	Title    string
+	Subtitle string // e.g., issue ID to show context
+	Width    int
 
 	// For input modals
 	Input textinput.Model
@@ -113,7 +114,12 @@ func (m Modal) View() string {
 		MarginBottom(1)
 
 	// Build content based on type
-	content.WriteString(titleStyle.Render(m.Title) + "\n\n")
+	content.WriteString(titleStyle.Render(m.Title) + "\n")
+	if m.Subtitle != "" {
+		subtitleStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
+		content.WriteString(subtitleStyle.Render(m.Subtitle) + "\n")
+	}
+	content.WriteString("\n")
 
 	if m.Type == ModalTypeInput {
 		// Text input
