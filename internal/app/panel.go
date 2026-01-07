@@ -108,12 +108,12 @@ func (p *PanelModel) SetTasks(tasks []models.Task) {
 func (p *PanelModel) SetSize(width, height int) {
 	p.width = width
 	p.height = height
-	// Account for border (2) and title line (1)
-	contentHeight := height - 3
+	// Account for border (2 top/bottom) and side padding (4 for │ + space on each side)
+	contentHeight := height - 4 // top border + bottom border + some padding
 	if contentHeight < 1 {
 		contentHeight = 1
 	}
-	contentWidth := width - 4 // Account for border and padding
+	contentWidth := width - 6 // side borders + padding
 	if contentWidth < 10 {
 		contentWidth = 10
 	}
@@ -193,38 +193,105 @@ func (p *PanelModel) HandleKey(msg tea.KeyMsg, keys ui.KeyMap) bool {
 	return false
 }
 
-// View renders the panel
+// View renders the panel with title embedded in the top border
 func (p PanelModel) View() string {
-	// Choose style based on focus
-	var panelStyle lipgloss.Style
-	var titleColor lipgloss.Color
+	width := p.width - 2
+	height := p.height - 2
+	if width < 10 {
+		width = 10
+	}
+	if height < 3 {
+		height = 3
+	}
+
+	// Choose colors based on focus
+	var borderColor, titleColor lipgloss.Color
 	if p.focused {
-		panelStyle = ui.FocusedPanelStyle
+		borderColor = ui.ColorPrimary
 		titleColor = ui.ColorPrimary
 	} else {
-		panelStyle = ui.PanelStyle
+		borderColor = ui.ColorBorder
 		titleColor = ui.ColorMuted
 	}
 
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(titleColor)
+
 	// Build title with count
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(titleColor)
-	title := titleStyle.Render(fmt.Sprintf("%s (%d)", p.title, len(p.tasks)))
+	titleText := fmt.Sprintf(" %s (%d) ", p.title, len(p.tasks))
 
-	// Build content
-	var content strings.Builder
-	content.WriteString(title + "\n")
-
-	if len(p.tasks) == 0 {
-		emptyStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted).Italic(true)
-		content.WriteString(emptyStyle.Render("  (no tasks)"))
-	} else {
-		content.WriteString(p.list.View())
+	// Truncate title if too long
+	maxTitleLen := width - 4 // Leave room for corners and some border
+	if len(titleText) > maxTitleLen {
+		if maxTitleLen > 3 {
+			titleText = titleText[:maxTitleLen-3] + "..."
+		} else {
+			titleText = ""
+		}
 	}
 
-	return panelStyle.
-		Width(p.width - 2).
-		Height(p.height - 2).
-		Render(content.String())
+	// Build top border: ╭─ Title ─────────╮
+	remainingWidth := width - len(titleText) - 2 // -2 for corners
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	topBorder := borderStyle.Render("╭─") +
+		titleStyle.Render(titleText) +
+		borderStyle.Render(strings.Repeat("─", remainingWidth) + "╮")
+
+	// Build content area
+	contentWidth := width - 2 // -2 for side borders
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+	contentHeight := height - 2 // -2 for top/bottom borders
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+
+	// Render the task list or empty message
+	var contentLines []string
+	if len(p.tasks) == 0 {
+		emptyStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted).Italic(true)
+		emptyMsg := emptyStyle.Render("(no tasks)")
+		// Pad to content width
+		padded := emptyMsg + strings.Repeat(" ", max(0, contentWidth-lipgloss.Width(emptyMsg)))
+		contentLines = append(contentLines, padded)
+	} else {
+		// Get the list view and split into lines
+		listView := p.list.View()
+		contentLines = strings.Split(listView, "\n")
+	}
+
+	// Pad or truncate content lines to fit
+	var middleRows []string
+	for i := 0; i < contentHeight; i++ {
+		var line string
+		if i < len(contentLines) {
+			line = contentLines[i]
+		} else {
+			line = ""
+		}
+		// Ensure line fits within content width (with padding)
+		lineWidth := lipgloss.Width(line)
+		if lineWidth < contentWidth {
+			line = line + strings.Repeat(" ", contentWidth-lineWidth)
+		}
+		// Add side borders
+		row := borderStyle.Render("│") + " " + line + " " + borderStyle.Render("│")
+		middleRows = append(middleRows, row)
+	}
+
+	// Build bottom border: ╰───────────────────╯
+	bottomBorder := borderStyle.Render("╰" + strings.Repeat("─", width-2) + "╯")
+
+	// Combine all parts
+	var result strings.Builder
+	result.WriteString(topBorder + "\n")
+	for _, row := range middleRows {
+		result.WriteString(row + "\n")
+	}
+	result.WriteString(bottomBorder)
+
+	return result.String()
 }
