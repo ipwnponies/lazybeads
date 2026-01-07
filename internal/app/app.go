@@ -128,11 +128,13 @@ func New() Model {
 
 	// Initialize form inputs
 	formTitle := textinput.New()
-	formTitle.Placeholder = "Task title"
+	formTitle.Prompt = ""
+	formTitle.Placeholder = "Enter a brief, descriptive title for this task"
 	formTitle.CharLimit = 200
 
 	formDesc := textinput.New()
-	formDesc.Placeholder = "Description (optional)"
+	formDesc.Prompt = ""
+	formDesc.Placeholder = "Add details, context, or acceptance criteria (optional)"
 	formDesc.CharLimit = 1000
 
 	return Model{
@@ -805,6 +807,14 @@ func (m *Model) updateSizes() {
 	if !m.isInProgressVisible() {
 		m.inProgressPanel.SetSize(panelWidth, 0)
 	}
+
+	// Update form input widths for placeholder text display
+	formWidth := m.width - 24 // Account for padding and borders
+	if formWidth < 20 {
+		formWidth = 20
+	}
+	m.formTitle.Width = formWidth
+	m.formDesc.Width = formWidth
 }
 
 func (m *Model) distributeTasks() {
