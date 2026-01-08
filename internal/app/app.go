@@ -104,6 +104,8 @@ type Model struct {
 
 	// Filter state
 	filterQuery string
+	searchMode  bool             // true when inline search is active
+	searchInput textinput.Model  // text input for inline search in status bar
 
 	// Status message (flash notification)
 	statusMsg string
@@ -128,10 +130,16 @@ func New() Model {
 	// Initialize detail viewport
 	vp := viewport.New(0, 0)
 
-	// Initialize filter input
+	// Initialize filter input (legacy - can be removed)
 	filter := textinput.New()
 	filter.Placeholder = "Search tasks..."
 	filter.CharLimit = 100
+
+	// Initialize inline search input for status bar
+	searchInput := textinput.New()
+	searchInput.Prompt = ""
+	searchInput.CharLimit = 100
+	searchInput.Width = 30
 
 	// Initialize form inputs
 	formTitle := textinput.New()
@@ -166,6 +174,7 @@ func New() Model {
 		closedPanel:     closedPanel,
 		detail:          vp,
 		filterText:      filter,
+		searchInput:     searchInput,
 		formTitle:       formTitle,
 		formDesc:        formDesc,
 		formPriority:    2,
@@ -212,6 +221,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		case "esc":
+			// If in search mode, exit search mode and clear filter
+			if m.searchMode {
+				m.searchMode = false
+				m.searchInput.Blur()
+				m.filterQuery = ""
+				m.searchInput.SetValue("")
+				m.distributeTasks()
+				return m, nil
+			}
 			// Escape goes back to list, never quits
 			if m.mode != ViewList {
 				m.mode = ViewList
@@ -307,17 +325,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update child components
 	switch m.mode {
 	case ViewList:
-		// Update the focused panel
-		var cmd tea.Cmd
-		switch m.focusedPanel {
-		case FocusInProgress:
-			m.inProgressPanel, cmd = m.inProgressPanel.Update(msg)
-		case FocusOpen:
-			m.openPanel, cmd = m.openPanel.Update(msg)
-		case FocusClosed:
-			m.closedPanel, cmd = m.closedPanel.Update(msg)
+		// If in search mode, update the search input
+		if m.searchMode {
+			var cmd tea.Cmd
+			m.searchInput, cmd = m.searchInput.Update(msg)
+			cmds = append(cmds, cmd)
+			// Update filter query in real-time
+			m.filterQuery = m.searchInput.Value()
+			m.distributeTasks()
+		} else {
+			// Update the focused panel
+			var cmd tea.Cmd
+			switch m.focusedPanel {
+			case FocusInProgress:
+				m.inProgressPanel, cmd = m.inProgressPanel.Update(msg)
+			case FocusOpen:
+				m.openPanel, cmd = m.openPanel.Update(msg)
+			case FocusClosed:
+				m.closedPanel, cmd = m.closedPanel.Update(msg)
+			}
+			cmds = append(cmds, cmd)
 		}
-		cmds = append(cmds, cmd)
 		// Sync selected item with detail panel
 		m.selected = m.getSelectedTask()
 	case ViewDetail:
@@ -377,7 +405,7 @@ func (m *Model) updateSizes() {
 
 	// Check if Closed panel is collapsed (only when not focused)
 	closedCollapsed := m.closedPanel.IsCollapsed()
-	collapsedHeight := 1 // Collapsed panel takes 1 line
+	collapsedHeight := 3 // Collapsed panel takes 3 lines (top border + 1 content + bottom border)
 
 	// Calculate available height for expanded panels
 	availableHeight := joinedHeight

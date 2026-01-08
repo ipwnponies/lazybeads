@@ -348,71 +348,83 @@ func (p PanelModel) View() string {
 	return result.String()
 }
 
-// viewCollapsed renders a single-line collapsed view of the panel
+// viewCollapsed renders a collapsed view with full border and one task line
 func (p PanelModel) viewCollapsed() string {
 	width := p.width
 	if width < 10 {
 		width = 10
 	}
 
-	// Use muted style for collapsed panel
+	// Use muted colors for unfocused collapsed panel
 	borderColor := ui.ColorBorder
 	titleColor := ui.ColorMuted
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
-	titleStyle := lipgloss.NewStyle().Foreground(titleColor)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(titleColor)
 
-	// Format: ╶── Closed (5) P2 issue-id Title... ──╴
-	leftDash := "╶──"
-	rightEnd := "──╴"
+	// Build title with count
 	titleText := fmt.Sprintf(" %s (%d) ", p.title, len(p.tasks))
 
-	// Calculate space for the first task preview
-	fixedWidth := lipgloss.Width(leftDash) + lipgloss.Width(titleText) + lipgloss.Width(rightEnd)
-	availableForTask := width - fixedWidth - 3 // -3 for minimum separator "───"
+	// Build top border: ╭─ Closed (5) ─────────╮
+	titleDisplayWidth := lipgloss.Width(titleText)
+	remainingWidth := width - titleDisplayWidth - 4 // -4 for "╭─" and "─╮"
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	topBorder := borderStyle.Render("╭─") +
+		titleStyle.Render(titleText) +
+		borderStyle.Render(strings.Repeat("─", remainingWidth)+"─╮")
 
-	var taskPreview string
-	if len(p.tasks) > 0 && availableForTask > 10 {
+	// Build content line with first task
+	contentWidth := width - 4 // -4 for side borders and padding
+	if contentWidth < 1 {
+		contentWidth = 1
+	}
+
+	var contentLine string
+	if len(p.tasks) > 0 {
 		task := p.tasks[0]
 		priority := task.PriorityString()
 		issueID := task.ID
 		taskTitle := task.Title
 
-		// Build task preview: "P2 issue-id Title"
-		prefix := fmt.Sprintf("%s %s ", priority, issueID)
-		prefixWidth := lipgloss.Width(prefix)
-		titleSpace := availableForTask - prefixWidth
-		if titleSpace < 5 {
-			titleSpace = 5
+		// Calculate available width for title
+		prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", priority, issueID))
+		maxTitleWidth := contentWidth - prefixWidth
+		if maxTitleWidth < 5 {
+			maxTitleWidth = 5
 		}
 
 		// Truncate title if needed
-		if lipgloss.Width(taskTitle) > titleSpace {
-			for lipgloss.Width(taskTitle+"...") > titleSpace && len(taskTitle) > 0 {
+		if lipgloss.Width(taskTitle) > maxTitleWidth {
+			for lipgloss.Width(taskTitle+"...") > maxTitleWidth && len(taskTitle) > 0 {
 				taskTitle = taskTitle[:len(taskTitle)-1]
 			}
 			taskTitle = taskTitle + "..."
 		}
 
-		// Style the task preview with muted colors
+		// Style the task line
 		priorityStyle := ui.PriorityStyle(task.Priority)
 		idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
-		taskPreview = priorityStyle.Render(priority) + " " +
-			idStyle.Render(issueID) + " " +
-			titleStyle.Render(taskTitle) + " "
+		contentLine = fmt.Sprintf(" %s %s %s",
+			priorityStyle.Render(priority),
+			idStyle.Render(issueID),
+			taskTitle)
+	} else {
+		emptyStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted).Italic(true)
+		contentLine = emptyStyle.Render("(no tasks)")
 	}
 
-	// Calculate remaining width for separator after task preview
-	usedWidth := lipgloss.Width(leftDash) + lipgloss.Width(titleText) + lipgloss.Width(taskPreview) + lipgloss.Width(rightEnd)
-	remainingWidth := width - usedWidth
-	if remainingWidth < 0 {
-		remainingWidth = 0
+	// Pad content to fill width
+	lineWidth := lipgloss.Width(contentLine)
+	if lineWidth < contentWidth {
+		contentLine = contentLine + strings.Repeat(" ", contentWidth-lineWidth)
 	}
 
-	line := borderStyle.Render(leftDash) +
-		titleStyle.Render(titleText) +
-		taskPreview +
-		borderStyle.Render(strings.Repeat("─", remainingWidth)) +
-		borderStyle.Render(rightEnd)
+	// Add side borders
+	middleRow := borderStyle.Render("│") + " " + contentLine + " " + borderStyle.Render("│")
 
-	return line
+	// Build bottom border: ╰───────────────────╯
+	bottomBorder := borderStyle.Render("╰" + strings.Repeat("─", width-2) + "╯")
+
+	return topBorder + "\n" + middleRow + "\n" + bottomBorder
 }
