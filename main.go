@@ -11,11 +11,19 @@ import (
 
 	"lazybeads/internal/app"
 	"lazybeads/internal/beads"
+	"lazybeads/internal/config"
 )
 
 func main() {
 	checkMode := flag.Bool("check", false, "Run headless validation (test bd CLI integration)")
+	configMode := flag.Bool("config", false, "Show config loading status and diagnostics")
 	flag.Parse()
+
+	// Config diagnostics mode (runs before beads check)
+	if *configMode {
+		showConfigStatus()
+		return
+	}
 
 	client := beads.NewClient()
 
@@ -166,4 +174,57 @@ func runCheck(client *beads.Client) {
 		os.Exit(1)
 	}
 	fmt.Println("All checks passed!")
+}
+
+// showConfigStatus displays configuration loading diagnostics
+func showConfigStatus() {
+	fmt.Println("Config Status")
+
+	// Show LAZYBEADS_CONFIG env var
+	envValue := os.Getenv("LAZYBEADS_CONFIG")
+	if envValue == "" {
+		fmt.Println("  LAZYBEADS_CONFIG: (not set)")
+	} else {
+		fmt.Printf("  LAZYBEADS_CONFIG: %s\n", envValue)
+	}
+
+	// Show resolved config path
+	configPath := config.ConfigPath()
+	fmt.Printf("  Config path:      %s\n", configPath)
+
+	// Check if file exists
+	_, statErr := os.Stat(configPath)
+	fileExists := statErr == nil
+	if fileExists {
+		fmt.Println("  File exists:      yes")
+	} else {
+		fmt.Println("  File exists:      no")
+	}
+
+	// Attempt to parse and show status
+	var cfg *config.Config
+	var parseErr error
+	if fileExists {
+		cfg, parseErr = config.Load()
+		if parseErr != nil {
+			fmt.Printf("  Parse status:     error (%v)\n", parseErr)
+		} else {
+			fmt.Println("  Parse status:     ok")
+		}
+	} else {
+		fmt.Println("  Parse status:     n/a (no config file)")
+	}
+
+	fmt.Println()
+
+	// Show custom commands
+	if cfg != nil && len(cfg.CustomCommands) > 0 {
+		fmt.Printf("Custom Commands (%d loaded)\n", len(cfg.CustomCommands))
+		for _, cmd := range cfg.CustomCommands {
+			fmt.Printf("  %s  %q  (%s)\n", cmd.Key, cmd.Description, cmd.Context)
+		}
+	} else {
+		fmt.Println("Custom Commands (0 loaded)")
+		fmt.Println("  (none)")
+	}
 }

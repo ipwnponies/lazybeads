@@ -64,16 +64,12 @@ func ConfigPath() string {
 
 // DefaultConfigPath returns the default config file path
 func DefaultConfigPath() string {
-	// Check XDG_CONFIG_HOME first (Linux/test override)
+	// Check XDG_CONFIG_HOME first
 	if xdgConfig := os.Getenv("XDG_CONFIG_HOME"); xdgConfig != "" {
 		return filepath.Join(xdgConfig, "lazybeads", "config.yml")
 	}
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		// Fallback to home directory
-		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".config", "lazybeads", "config.yml")
-	}
-	return filepath.Join(configDir, "lazybeads", "config.yml")
+	// Always use ~/.config for CLI tools (cross-platform convention)
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "lazybeads", "config.yml")
 }
