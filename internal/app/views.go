@@ -29,7 +29,7 @@ func (m Model) View() string {
 		}
 		return m.viewMain()
 	case ViewEditTitle, ViewEditStatus, ViewEditPriority, ViewEditType, ViewFilter:
-		return m.viewMainWithInlineBar()
+		return m.viewMainWithModal()
 	default:
 		return m.viewMain()
 	}
@@ -183,58 +183,9 @@ func (m Model) viewConfirm() string {
 	return b.String()
 }
 
-func (m Model) viewMainWithInlineBar() string {
-	var b strings.Builder
-
-	// Show filter indicator if filter is active (but not when editing filter)
-	if m.filterQuery != "" && m.mode != ViewFilter {
-		filterIndicator := ui.HelpKeyStyle.Render("[filter: ") +
-			ui.HelpDescStyle.Render(m.filterQuery) +
-			ui.HelpKeyStyle.Render("]")
-		b.WriteString(filterIndicator + "\n")
-	}
-
-	// Content area (same as viewMain but with one less line for the taller inline bar)
-	contentHeight := m.height - 3
-
-	// Stack visible panels vertically
-	var panelViews []string
-	if m.isInProgressVisible() {
-		panelViews = append(panelViews, m.inProgressPanel.View())
-	}
-	panelViews = append(panelViews, m.openPanel.View())
-	panelViews = append(panelViews, m.closedPanel.View())
-	leftColumn := lipgloss.JoinVertical(lipgloss.Left, panelViews...)
-
-	if m.width >= 80 {
-		// Wide mode: panels on left, detail on right
-		detailStyle := ui.PanelStyle
-
-		detailContent := ""
-		if m.selected != nil {
-			m.updateDetailContent()
-			detailContent = m.detail.View()
-		} else {
-			detailContent = ui.HelpDescStyle.Render("Select a task to view details")
-		}
-
-		detailPanel := detailStyle.
-			Width(m.width/2 - 2).
-			Height(contentHeight).
-			Render(detailContent)
-
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, detailPanel))
-	} else {
-		// Narrow mode: panels only
-		b.WriteString(leftColumn)
-	}
-
-	b.WriteString("\n")
-
-	// Inline bar instead of help bar
-	b.WriteString(m.inlineBar.View(m.width))
-
-	return b.String()
+func (m Model) viewMainWithModal() string {
+	// Render the modal centered on screen
+	return m.modal.View(m.width, m.height)
 }
 
 func (m Model) renderHelpBar() string {

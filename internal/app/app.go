@@ -99,8 +99,8 @@ type Model struct {
 	confirmMsg    string
 	confirmAction func() tea.Cmd
 
-	// Inline bar state (replaces modal)
-	inlineBar ui.InlineBar
+	// Modal state for field editing
+	modal ui.Modal
 
 	// Filter state
 	filterQuery string
@@ -326,14 +326,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewForm:
 		cmds = append(cmds, m.updateForm(msg))
 	case ViewEditTitle:
-		// Update text input in inline bar
+		// Update text input in modal
 		var cmd tea.Cmd
-		m.inlineBar.Input, cmd = m.inlineBar.Input.Update(msg)
+		m.modal.Input, cmd = m.modal.Input.Update(msg)
 		cmds = append(cmds, cmd)
 	case ViewFilter:
-		// Update text input in inline bar for filter
+		// Update text input in modal for filter
 		var cmd tea.Cmd
-		m.inlineBar.Input, cmd = m.inlineBar.Input.Update(msg)
+		m.modal.Input, cmd = m.modal.Input.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 

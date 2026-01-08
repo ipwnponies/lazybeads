@@ -105,44 +105,44 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 
 	case key.Matches(msg, m.keys.EditTitle):
 		if task := m.getSelectedTask(); task != nil {
-			m.inlineBar = ui.NewInlineBarInput("Title", task.ID, task.Title, m.width)
+			m.modal = ui.NewModalInput("Edit Title", task.ID, task.Title)
 			m.mode = ViewEditTitle
 		}
 
 	case key.Matches(msg, m.keys.EditStatus):
 		if task := m.getSelectedTask(); task != nil {
-			options := []ui.InlineBarOption{
+			options := []ui.ModalOption{
 				{Label: "open", Value: "open", Shortcut: "o"},
 				{Label: "in_progress", Value: "in_progress", Shortcut: "i"},
 				{Label: "closed", Value: "closed", Shortcut: "c"},
 			}
-			m.inlineBar = ui.NewInlineBarSelect("Status", task.ID, options, task.Status)
+			m.modal = ui.NewModalSelect("Edit Status", task.ID, options, task.Status)
 			m.mode = ViewEditStatus
 		}
 
 	case key.Matches(msg, m.keys.EditPriority):
 		if task := m.getSelectedTask(); task != nil {
-			options := []ui.InlineBarOption{
-				{Label: "P0", Value: "0", Shortcut: "0"},
-				{Label: "P1", Value: "1", Shortcut: "1"},
-				{Label: "P2", Value: "2", Shortcut: "2"},
-				{Label: "P3", Value: "3", Shortcut: "3"},
-				{Label: "P4", Value: "4", Shortcut: "4"},
+			options := []ui.ModalOption{
+				{Label: "P0 - Critical", Value: "0", Shortcut: "0"},
+				{Label: "P1 - High", Value: "1", Shortcut: "1"},
+				{Label: "P2 - Medium", Value: "2", Shortcut: "2"},
+				{Label: "P3 - Low", Value: "3", Shortcut: "3"},
+				{Label: "P4 - Backlog", Value: "4", Shortcut: "4"},
 			}
-			m.inlineBar = ui.NewInlineBarSelect("Priority", task.ID, options, fmt.Sprintf("%d", task.Priority))
+			m.modal = ui.NewModalSelect("Edit Priority", task.ID, options, fmt.Sprintf("%d", task.Priority))
 			m.mode = ViewEditPriority
 		}
 
 	case key.Matches(msg, m.keys.EditType):
 		if task := m.getSelectedTask(); task != nil {
-			options := []ui.InlineBarOption{
+			options := []ui.ModalOption{
 				{Label: "task", Value: "task", Shortcut: "t"},
 				{Label: "bug", Value: "bug", Shortcut: "b"},
 				{Label: "feature", Value: "feature", Shortcut: "f"},
 				{Label: "epic", Value: "epic", Shortcut: "e"},
 				{Label: "chore", Value: "chore", Shortcut: "r"},
 			}
-			m.inlineBar = ui.NewInlineBarSelect("Type", task.ID, options, task.Type)
+			m.modal = ui.NewModalSelect("Edit Type", task.ID, options, task.Type)
 			m.mode = ViewEditType
 		}
 
@@ -152,8 +152,8 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 		}
 
 	case key.Matches(msg, m.keys.Filter):
-		// Enter filter mode with an inline bar
-		m.inlineBar = ui.NewInlineBarInput("Filter", "", m.filterQuery, m.width)
+		// Enter filter mode with a modal
+		m.modal = ui.NewModalInput("Filter", "", m.filterQuery)
 		m.mode = ViewFilter
 
 	case key.Matches(msg, m.keys.CopyID):
@@ -240,7 +240,7 @@ func (m *Model) handleTitleBarKeys(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "enter":
 		if m.selected != nil {
-			newTitle := strings.TrimSpace(m.inlineBar.InputValue())
+			newTitle := strings.TrimSpace(m.modal.InputValue())
 			if newTitle != "" {
 				taskID := m.selected.ID
 				m.mode = ViewList
@@ -263,27 +263,27 @@ func (m *Model) handleSelectBarKeys(msg tea.KeyMsg) tea.Cmd {
 	key := msg.String()
 
 	// Check for shortcut keys first
-	if m.inlineBar.SelectByShortcut(key) {
+	if m.modal.SelectByShortcut(key) {
 		// Shortcut matched, apply immediately
 		if m.selected != nil {
-			value := m.inlineBar.SelectedValue()
+			value := m.modal.SelectedValue()
 			taskID := m.selected.ID
 			m.mode = ViewList
-			return m.applyInlineBarSelection(taskID, value)
+			return m.applyModalSelection(taskID, value)
 		}
 	}
 
 	switch key {
-	case "h", "left":
-		m.inlineBar.MoveLeft()
-	case "l", "right":
-		m.inlineBar.MoveRight()
+	case "k", "up":
+		m.modal.MoveUp()
+	case "j", "down":
+		m.modal.MoveDown()
 	case "enter":
 		if m.selected != nil {
-			value := m.inlineBar.SelectedValue()
+			value := m.modal.SelectedValue()
 			taskID := m.selected.ID
 			m.mode = ViewList
-			return m.applyInlineBarSelection(taskID, value)
+			return m.applyModalSelection(taskID, value)
 		}
 		m.mode = ViewList
 	case "esc":
@@ -292,17 +292,17 @@ func (m *Model) handleSelectBarKeys(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) applyInlineBarSelection(taskID, value string) tea.Cmd {
-	// Determine what field to update based on inline bar title
-	switch m.inlineBar.Title {
-	case "Status":
+func (m *Model) applyModalSelection(taskID, value string) tea.Cmd {
+	// Determine what field to update based on modal title
+	switch m.modal.Title {
+	case "Edit Status":
 		return func() tea.Msg {
 			err := m.client.Update(taskID, beads.UpdateOptions{
 				Status: value,
 			})
 			return taskUpdatedMsg{err: err}
 		}
-	case "Priority":
+	case "Edit Priority":
 		priority := 2
 		fmt.Sscanf(value, "%d", &priority)
 		return func() tea.Msg {
@@ -311,7 +311,7 @@ func (m *Model) applyInlineBarSelection(taskID, value string) tea.Cmd {
 			})
 			return taskUpdatedMsg{err: err}
 		}
-	case "Type":
+	case "Edit Type":
 		return func() tea.Msg {
 			err := m.client.Update(taskID, beads.UpdateOptions{
 				Type: value,
@@ -326,13 +326,11 @@ func (m *Model) handleFilterKeys(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "enter":
 		// Apply filter and return to list
-		m.filterQuery = strings.TrimSpace(m.inlineBar.InputValue())
+		m.filterQuery = strings.TrimSpace(m.modal.InputValue())
 		m.distributeTasks()
 		m.mode = ViewList
 	case "esc":
-		// Clear filter and return to list
-		m.filterQuery = ""
-		m.distributeTasks()
+		// Cancel and return to list (don't change filter)
 		m.mode = ViewList
 	}
 	return nil
