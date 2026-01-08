@@ -38,16 +38,8 @@ func (m Model) View() string {
 func (m Model) viewMain() string {
 	var b strings.Builder
 
-	// Show filter indicator if filter is active
-	if m.filterQuery != "" {
-		filterIndicator := ui.HelpKeyStyle.Render("[filter: ") +
-			ui.HelpDescStyle.Render(m.filterQuery) +
-			ui.HelpKeyStyle.Render("]")
-		b.WriteString(filterIndicator + "\n")
-	}
-
 	// Content area
-	contentHeight := m.height - 3
+	contentHeight := m.height - 2
 
 	// Stack visible panels vertically
 	var panelViews []string
@@ -93,9 +85,9 @@ func (m Model) viewMain() string {
 		m.err = nil
 	}
 
-	// Help bar
-	helpText := m.renderHelpBar()
-	b.WriteString(ui.HelpBarStyle.Render(helpText))
+	// Status bar (shows key bindings by default, search results when filtering)
+	statusText := m.renderStatusBar()
+	b.WriteString(ui.HelpBarStyle.Render(statusText))
 
 	return b.String()
 }
@@ -189,32 +181,63 @@ func (m Model) viewMainWithModal() string {
 	return m.modal.View(m.width, m.height)
 }
 
-func (m Model) renderHelpBar() string {
-	keys := []struct {
-		key  string
-		desc string
-	}{
-		{"j/k", "nav"},
-		{"h/l", "panel"},
-		{"/", "filter"},
-		{"enter", "detail"},
-		{"t/s/p/T/d", "edit"},
-		{"y", "copy"},
-		{"x", "delete"},
-		{"?", "help"},
-		{"q", "quit"},
-	}
-
+func (m Model) renderStatusBar() string {
 	var parts []string
 
-	// Show status message if present
+	// Show status message if present (flash notifications like "Copied!")
 	if m.statusMsg != "" {
 		parts = append(parts, ui.SuccessStyle.Render(m.statusMsg))
 	}
 
-	for _, k := range keys {
-		part := ui.HelpKeyStyle.Render(k.key) + ":" + ui.HelpDescStyle.Render(k.desc)
-		parts = append(parts, part)
+	// When filter is active, show search results instead of key bindings
+	if m.filterQuery != "" {
+		// Filter indicator
+		filterPart := ui.HelpKeyStyle.Render("/") + ":" +
+			ui.HelpDescStyle.Render(m.filterQuery)
+		parts = append(parts, filterPart)
+
+		// Search result counts
+		inProgressCount := m.inProgressPanel.TaskCount()
+		openCount := m.openPanel.TaskCount()
+		closedCount := m.closedPanel.TaskCount()
+		total := inProgressCount + openCount + closedCount
+
+		resultsPart := ui.HelpDescStyle.Render(fmt.Sprintf("(%d results:", total))
+		if inProgressCount > 0 {
+			resultsPart += ui.StatusStyle("in_progress").Render(fmt.Sprintf(" %d in progress", inProgressCount))
+		}
+		if openCount > 0 {
+			resultsPart += ui.StatusStyle("open").Render(fmt.Sprintf(" %d open", openCount))
+		}
+		if closedCount > 0 {
+			resultsPart += ui.HelpDescStyle.Render(fmt.Sprintf(" %d closed", closedCount))
+		}
+		resultsPart += ui.HelpDescStyle.Render(")")
+		parts = append(parts, resultsPart)
+
+		// Minimal key bindings when filtering
+		parts = append(parts, ui.HelpKeyStyle.Render("esc")+":"+ui.HelpDescStyle.Render("clear"))
+	} else {
+		// Default: show key bindings
+		keys := []struct {
+			key  string
+			desc string
+		}{
+			{"j/k", "nav"},
+			{"h/l", "panel"},
+			{"/", "filter"},
+			{"enter", "detail"},
+			{"t/s/p/T/d", "edit"},
+			{"y", "copy"},
+			{"x", "delete"},
+			{"?", "help"},
+			{"q", "quit"},
+		}
+
+		for _, k := range keys {
+			part := ui.HelpKeyStyle.Render(k.key) + ":" + ui.HelpDescStyle.Render(k.desc)
+			parts = append(parts, part)
+		}
 	}
 
 	return strings.Join(parts, "  ")
