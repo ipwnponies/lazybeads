@@ -38,27 +38,16 @@ func (m Model) View() string {
 func (m Model) viewMain() string {
 	var b strings.Builder
 
-	// Title bar
-	title := ui.TitleStyle.Render("lazybeads")
 	// Show filter indicator if filter is active
-	filterIndicator := ""
 	if m.filterQuery != "" {
-		filterIndicator = ui.HelpKeyStyle.Render(" [filter: ") +
+		filterIndicator := ui.HelpKeyStyle.Render("[filter: ") +
 			ui.HelpDescStyle.Render(m.filterQuery) +
 			ui.HelpKeyStyle.Render("]")
+		b.WriteString(filterIndicator + "\n")
 	}
-	focusInfo := m.focusPanelString()
-	titleLine := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		title,
-		filterIndicator,
-		strings.Repeat(" ", max(0, m.width-lipgloss.Width(title)-lipgloss.Width(filterIndicator)-lipgloss.Width(focusInfo)-2)),
-		ui.HelpDescStyle.Render(focusInfo),
-	)
-	b.WriteString(titleLine + "\n")
 
 	// Content area
-	contentHeight := m.height - 4
+	contentHeight := m.height - 3
 
 	// Stack visible panels vertically
 	var panelViews []string
@@ -189,27 +178,16 @@ func (m Model) viewConfirm() string {
 func (m Model) viewMainWithInlineBar() string {
 	var b strings.Builder
 
-	// Title bar
-	title := ui.TitleStyle.Render("lazybeads")
 	// Show filter indicator if filter is active (but not when editing filter)
-	filterIndicator := ""
 	if m.filterQuery != "" && m.mode != ViewFilter {
-		filterIndicator = ui.HelpKeyStyle.Render(" [filter: ") +
+		filterIndicator := ui.HelpKeyStyle.Render("[filter: ") +
 			ui.HelpDescStyle.Render(m.filterQuery) +
 			ui.HelpKeyStyle.Render("]")
+		b.WriteString(filterIndicator + "\n")
 	}
-	focusInfo := m.focusPanelString()
-	titleLine := lipgloss.JoinHorizontal(
-		lipgloss.Left,
-		title,
-		filterIndicator,
-		strings.Repeat(" ", max(0, m.width-lipgloss.Width(title)-lipgloss.Width(filterIndicator)-lipgloss.Width(focusInfo)-2)),
-		ui.HelpDescStyle.Render(focusInfo),
-	)
-	b.WriteString(titleLine + "\n")
 
 	// Content area (same as viewMain but with one less line for the taller inline bar)
-	contentHeight := m.height - 4
+	contentHeight := m.height - 3
 
 	// Stack visible panels vertically
 	var panelViews []string
@@ -249,19 +227,6 @@ func (m Model) viewMainWithInlineBar() string {
 	b.WriteString(m.inlineBar.View(m.width))
 
 	return b.String()
-}
-
-func (m Model) focusPanelString() string {
-	switch m.focusedPanel {
-	case FocusInProgress:
-		return "[in progress]"
-	case FocusOpen:
-		return "[open]"
-	case FocusClosed:
-		return "[closed]"
-	default:
-		return ""
-	}
 }
 
 func (m Model) renderHelpBar() string {
