@@ -67,7 +67,7 @@ func (m Model) viewMain() string {
 
 		detailPanel := detailStyle.
 			Width(m.width/2 - 2).
-			Height(contentHeight).
+			Height(contentHeight - 2). // -2 for lipgloss border (top + bottom)
 			Render(detailContent)
 
 		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, detailPanel))
