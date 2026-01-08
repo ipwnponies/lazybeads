@@ -354,9 +354,16 @@ func (m *Model) updateSizes() {
 		numPanels = 1 // Shouldn't happen, but avoid division by zero
 	}
 
+	// Account for newlines between panels when joined vertically
+	// JoinVertical adds (numPanels - 1) newlines between panels
+	joinedHeight := contentHeight - (numPanels - 1)
+	if joinedHeight < numPanels {
+		joinedHeight = numPanels // Minimum 1 line per panel
+	}
+
 	// Calculate panel heights - distribute evenly with remainder going to first panels
-	panelHeight := contentHeight / numPanels
-	remainder := contentHeight % numPanels
+	panelHeight := joinedHeight / numPanels
+	remainder := joinedHeight % numPanels
 	if panelHeight < 4 {
 		panelHeight = 4
 	}
