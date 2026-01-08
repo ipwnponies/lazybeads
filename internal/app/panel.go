@@ -355,27 +355,62 @@ func (p PanelModel) viewCollapsed() string {
 		width = 10
 	}
 
-	// Build title with count: "╶── Closed (5) ───────────────────────────╴"
-	titleText := fmt.Sprintf(" %s (%d) ", p.title, len(p.tasks))
-
 	// Use muted style for collapsed panel
 	borderColor := ui.ColorBorder
 	titleColor := ui.ColorMuted
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
 	titleStyle := lipgloss.NewStyle().Foreground(titleColor)
 
-	// Calculate remaining width for the right side dashes
-	// Format: ╶── Title (N) ─────────────────────────╴
+	// Format: ╶── Closed (5) P2 issue-id Title... ──╴
 	leftDash := "╶──"
 	rightEnd := "──╴"
-	titleDisplayWidth := lipgloss.Width(titleText)
-	remainingWidth := width - lipgloss.Width(leftDash) - titleDisplayWidth - lipgloss.Width(rightEnd)
+	titleText := fmt.Sprintf(" %s (%d) ", p.title, len(p.tasks))
+
+	// Calculate space for the first task preview
+	fixedWidth := lipgloss.Width(leftDash) + lipgloss.Width(titleText) + lipgloss.Width(rightEnd)
+	availableForTask := width - fixedWidth - 3 // -3 for minimum separator "───"
+
+	var taskPreview string
+	if len(p.tasks) > 0 && availableForTask > 10 {
+		task := p.tasks[0]
+		priority := task.PriorityString()
+		issueID := task.ID
+		taskTitle := task.Title
+
+		// Build task preview: "P2 issue-id Title"
+		prefix := fmt.Sprintf("%s %s ", priority, issueID)
+		prefixWidth := lipgloss.Width(prefix)
+		titleSpace := availableForTask - prefixWidth
+		if titleSpace < 5 {
+			titleSpace = 5
+		}
+
+		// Truncate title if needed
+		if lipgloss.Width(taskTitle) > titleSpace {
+			for lipgloss.Width(taskTitle+"...") > titleSpace && len(taskTitle) > 0 {
+				taskTitle = taskTitle[:len(taskTitle)-1]
+			}
+			taskTitle = taskTitle + "..."
+		}
+
+		// Style the task preview with muted colors
+		priorityStyle := ui.PriorityStyle(task.Priority)
+		idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+		taskPreview = priorityStyle.Render(priority) + " " +
+			idStyle.Render(issueID) + " " +
+			titleStyle.Render(taskTitle) + " "
+	}
+
+	// Calculate remaining width for separator after task preview
+	usedWidth := lipgloss.Width(leftDash) + lipgloss.Width(titleText) + lipgloss.Width(taskPreview) + lipgloss.Width(rightEnd)
+	remainingWidth := width - usedWidth
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
 
 	line := borderStyle.Render(leftDash) +
 		titleStyle.Render(titleText) +
+		taskPreview +
 		borderStyle.Render(strings.Repeat("─", remainingWidth)) +
 		borderStyle.Render(rightEnd)
 
