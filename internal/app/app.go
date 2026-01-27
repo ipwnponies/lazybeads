@@ -98,6 +98,7 @@ type Model struct {
 	detail     viewport.Model
 	helpList   list.Model
 	filterText textinput.Model
+	helpItems  []helpItem
 
 	// Form state
 	formTitle      textinput.Model
@@ -121,9 +122,13 @@ type Model struct {
 	modal ui.Modal
 
 	// Filter state
-	filterQuery string
-	searchMode  bool            // true when inline search is active
-	searchInput textinput.Model // text input for inline search in status bar
+	filterQuery      string
+	searchMode       bool            // true when inline search is active
+	searchInput      textinput.Model // text input for inline search in status bar
+	helpFilterInput  textinput.Model
+	helpFilterQuery  string
+	helpFilterActive bool
+	helpFilterPrev   string
 
 	// Status message (flash notification)
 	statusMsg string
@@ -159,6 +164,11 @@ func New() Model {
 	searchInput.Prompt = ""
 	searchInput.CharLimit = 100
 	searchInput.Width = 30
+
+	helpFilterInput := textinput.New()
+	helpFilterInput.Prompt = ""
+	helpFilterInput.CharLimit = 100
+	helpFilterInput.Width = 30
 
 	// Initialize form inputs
 	formTitle := textinput.New()
@@ -213,7 +223,9 @@ func New() Model {
 		detail:          vp,
 		helpList:        helpList,
 		filterText:      filter,
+		helpItems:       helpItems,
 		searchInput:     searchInput,
+		helpFilterInput: helpFilterInput,
 		formTitle:       formTitle,
 		formDesc:        formDesc,
 		formNotes:       formNotes,
@@ -271,6 +283,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput.SetValue("")
 				m.distributeTasks()
 				return m, nil
+			}
+			if m.mode == ViewHelp && m.helpFilterActive {
+				cmd := m.handleHelpKeys(msg)
+				return m, cmd
+			}
+			if m.mode == ViewHelp && !m.helpFilterActive {
+				m.clearHelpFilter()
 			}
 			// Escape goes back to list, never quits
 			if m.mode != ViewList {
@@ -424,6 +443,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewHelp:
 		// Avoid list handling for key messages; handled in handleHelpKeys
 		if _, isKey := msg.(tea.KeyMsg); !isKey {
+			if m.helpFilterActive {
+				var inputCmd tea.Cmd
+				m.helpFilterInput, inputCmd = m.helpFilterInput.Update(msg)
+				cmds = append(cmds, inputCmd)
+			}
 			var cmd tea.Cmd
 			m.helpList, cmd = m.helpList.Update(msg)
 			cmds = append(cmds, cmd)
@@ -542,6 +566,11 @@ func (m *Model) updateSizes() {
 		listHeight = 1
 	}
 	m.helpList.SetSize(helpWidth-2, listHeight)
+	helpInputWidth := helpWidth - 10
+	if helpInputWidth < 10 {
+		helpInputWidth = 10
+	}
+	m.helpFilterInput.Width = helpInputWidth
 }
 
 func (m *Model) distributeTasks() {

@@ -238,30 +238,72 @@ func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) handleHelpKeys(msg tea.KeyMsg) tea.Cmd {
+	if m.helpFilterActive {
+		switch msg.String() {
+		case "enter":
+			m.helpFilterActive = false
+			m.helpFilterInput.Blur()
+			return nil
+		case "esc":
+			m.helpFilterInput.SetValue(m.helpFilterPrev)
+			m.applyHelpFilter()
+			m.helpFilterActive = false
+			m.helpFilterInput.Blur()
+			return nil
+		}
+		prevValue := m.helpFilterInput.Value()
+		var cmd tea.Cmd
+		m.helpFilterInput, cmd = m.helpFilterInput.Update(msg)
+		if prevValue != m.helpFilterInput.Value() {
+			m.applyHelpFilter()
+		}
+		return cmd
+	}
+
 	switch {
 	case key.Matches(msg, m.keys.Cancel), key.Matches(msg, m.keys.Help):
+		m.clearHelpFilter()
 		m.mode = ViewList
+		return nil
 	case key.Matches(msg, m.keys.Up):
 		m.helpList.CursorUp()
+		return nil
 	case key.Matches(msg, m.keys.Down):
 		m.helpList.CursorDown()
+		return nil
 	case key.Matches(msg, m.keys.PageUp):
 		for i := 0; i < 10; i++ {
 			m.helpList.CursorUp()
 		}
+		return nil
 	case key.Matches(msg, m.keys.PageDown):
 		for i := 0; i < 10; i++ {
 			m.helpList.CursorDown()
 		}
+		return nil
 	case key.Matches(msg, m.keys.Top):
 		m.helpList.Select(0)
+		return nil
 	case key.Matches(msg, m.keys.Bottom):
 		items := m.helpList.Items()
 		if len(items) > 0 {
 			m.helpList.Select(len(items) - 1)
 		}
+		return nil
 	case msg.String() == "enter":
 		return m.executeHelpSelection()
+	case msg.String() == "/":
+		m.helpFilterPrev = m.helpFilterQuery
+		m.helpFilterInput.SetValue("")
+		m.applyHelpFilter()
+		m.helpFilterActive = true
+		cmd := m.helpFilterInput.Focus()
+		m.helpFilterInput.CursorEnd()
+		return cmd
+	case msg.String() == "q":
+		m.clearHelpFilter()
+		m.mode = ViewList
+		return nil
 	}
 	return nil
 }

@@ -45,10 +45,7 @@ func (h helpItem) FilterValue() string {
 }
 
 func newHelpList(items []helpItem) list.Model {
-	listItems := make([]list.Item, len(items))
-	for i, item := range items {
-		listItems[i] = item
-	}
+	listItems := helpItemsToListItems(items)
 	l := list.New(listItems, helpDelegate{}, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -56,6 +53,14 @@ func newHelpList(items []helpItem) list.Model {
 	l.SetShowPagination(false)
 	l.SetFilteringEnabled(false)
 	return l
+}
+
+func helpItemsToListItems(items []helpItem) []list.Item {
+	listItems := make([]list.Item, len(items))
+	for i, item := range items {
+		listItems[i] = item
+	}
+	return listItems
 }
 
 func buildHelpItems(keys ui.KeyMap, customCmds []config.CustomCommand) []helpItem {
@@ -107,6 +112,61 @@ func firstBindingKey(keys []string) string {
 	return ""
 }
 
+func helpItemID(item helpItem) string {
+	return strings.Join([]string{item.key, item.desc, item.context, item.trigger, fmt.Sprintf("%d", item.kind)}, "|")
+}
+
+func filterHelpItems(items []helpItem, query string) []helpItem {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return items
+	}
+	targets := make([]string, len(items))
+	for i, item := range items {
+		targets[i] = item.FilterValue()
+	}
+	ranks := list.DefaultFilter(query, targets)
+	filtered := make([]helpItem, len(ranks))
+	for i, rank := range ranks {
+		filtered[i] = items[rank.Index]
+	}
+	return filtered
+}
+
+func (m *Model) applyHelpFilter() {
+	query := strings.TrimSpace(m.helpFilterInput.Value())
+	m.helpFilterQuery = query
+	current := m.selectedHelpItem()
+	selectedID := ""
+	if current != nil {
+		selectedID = helpItemID(*current)
+	}
+	filtered := filterHelpItems(m.helpItems, query)
+	m.helpList.SetItems(helpItemsToListItems(filtered))
+	if selectedID != "" {
+		for i, item := range filtered {
+			if helpItemID(item) == selectedID {
+				m.helpList.Select(i)
+				return
+			}
+		}
+	}
+	if len(filtered) > 0 {
+		m.helpList.Select(0)
+	}
+}
+
+func (m *Model) clearHelpFilter() {
+	m.helpFilterActive = false
+	m.helpFilterQuery = ""
+	m.helpFilterInput.SetValue("")
+	m.helpFilterInput.Blur()
+	m.helpList.SetItems(helpItemsToListItems(m.helpItems))
+	if len(m.helpItems) > 0 {
+		m.helpList.Select(0)
+	}
+}
+
 func (m *Model) selectedHelpItem() *helpItem {
 	items := m.helpList.Items()
 	if len(items) == 0 {
@@ -129,6 +189,7 @@ func (m *Model) executeHelpSelection() tea.Cmd {
 		return nil
 	}
 
+	m.clearHelpFilter()
 	m.mode = ViewList
 	switch item.kind {
 	case helpItemCustom:

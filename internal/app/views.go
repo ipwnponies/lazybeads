@@ -125,7 +125,27 @@ func (m *Model) viewHelp() string {
 	b.WriteString(m.helpList.View())
 	b.WriteString("\n")
 
-	helpBar := fmt.Sprintf("j/k:move  ^u/^d:page  enter:run  ?/esc:close  %d shortcuts", len(m.helpList.Items()))
+	helpParts := []string{
+		ui.HelpKeyStyle.Render("j/k") + ":" + ui.HelpDescStyle.Render("move"),
+		ui.HelpKeyStyle.Render("^u/^d") + ":" + ui.HelpDescStyle.Render("page"),
+		ui.HelpKeyStyle.Render("enter") + ":" + ui.HelpDescStyle.Render("run"),
+		ui.HelpKeyStyle.Render("/") + ":" + ui.HelpDescStyle.Render("filter"),
+		ui.HelpKeyStyle.Render("q/?/esc") + ":" + ui.HelpDescStyle.Render("close"),
+	}
+
+	if m.helpFilterActive {
+		filterPart := ui.HelpKeyStyle.Render("/: ") + m.helpFilterInput.View()
+		helpParts = append(helpParts, filterPart)
+	} else if m.helpFilterQuery != "" {
+		filterPart := ui.HelpKeyStyle.Render("/: ") + ui.HelpDescStyle.Render(m.helpFilterQuery)
+		helpParts = append(helpParts, filterPart)
+	}
+
+	total := len(m.helpItems)
+	filtered := len(m.helpList.Items())
+	helpParts = append(helpParts, ui.HelpDescStyle.Render(fmt.Sprintf("(%d of %d shortcuts)", filtered, total)))
+
+	helpBar := strings.Join(helpParts, "  ")
 	b.WriteString(ui.HelpBarStyle.Render(helpBar))
 
 	helpBoxStyle := ui.OverlayStyle.Padding(0, 1)
