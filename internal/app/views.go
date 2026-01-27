@@ -120,7 +120,7 @@ func (m *Model) viewHelp() string {
   g/G         Jump to top/bottom
   ^u/^d       Page up/down
 
-Panels (h/l to cycle focus)
+Panels (h/l, ←/→, or tab/shift+tab to cycle focus)
   In Progress Tasks with status "in_progress"
   Open        Tasks with status "open"
   Closed      Tasks with status "closed"
@@ -268,7 +268,7 @@ func (m Model) renderStatusBar() string {
 			desc string
 		}{
 			{"j/k", "nav"},
-			{"h/l", "panel"},
+			{"h/l, ←/→, tab/shift+tab", "panel"},
 			{"/", "filter"},
 			{"enter", "detail"},
 			{"e/s/p/t/d/N/D/C", "edit"},

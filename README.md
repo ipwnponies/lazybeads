@@ -10,7 +10,7 @@ Navigate, create, and manage your project issues without leaving the terminal.
 ## Features
 
 - **Three-panel layout** - See In Progress, Open, and Closed issues at a glance
-- **Vim-style navigation** - `j/k` to move, `h/l` to switch panels
+- **Vim-style navigation** - `j/k` to move, `h/l`, `Tab`, or `←/→` to switch panels
 - **Quick editing** - Edit title, status, priority, or type with single keystrokes
 - **Filter & search** - Use `/` to filter issues by title or ID
 - **Detail view** - Press `Enter` to see full issue details
@@ -66,7 +66,7 @@ lazybeads --check
 | `j` / `k` | Move down / up |
 | `g` / `G` | Jump to top / bottom |
 | `Ctrl+u` / `Ctrl+d` | Page up / down |
-| `h` / `l` | Previous / next panel |
+| `h` / `l` / `←` / `→` / `Tab` / `Shift+Tab` | Previous / next panel |
 
 ### Actions
 

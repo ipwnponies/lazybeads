@@ -183,11 +183,11 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("shift+tab", "prev field"),
 		),
 		PrevView: key.NewBinding(
-			key.WithKeys("h", "left"),
-			key.WithHelp("h/l", "prev/next view"),
+			key.WithKeys("h", "left", "shift+tab"),
+			key.WithHelp("h/l, ←/→, tab/shift+tab", "prev/next view"),
 		),
 		NextView: key.NewBinding(
-			key.WithKeys("l", "right"),
+			key.WithKeys("l", "right", "tab"),
 			key.WithHelp("", ""),
 		),
 	}
