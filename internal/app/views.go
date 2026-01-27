@@ -113,74 +113,32 @@ func (m Model) viewDetailOverlay() string {
 func (m *Model) viewHelp() string {
 	var b strings.Builder
 
-	b.WriteString(ui.TitleStyle.Render("Keyboard Shortcuts") + "\n\n")
-
-	helpContent := `Navigation
-  j/k, ↑/↓    Move up/down in focused panel
-  g/G         Jump to top/bottom
-  ^u/^d       Page up/down
-
-Panels (h/l, ←/→, or tab/shift+tab to cycle focus)
-  In Progress Tasks with status "in_progress"
-  Open        Tasks with status "open"
-  Closed      Tasks with status "closed"
-
-Filtering
-  /           Start inline search in status bar
-  (typing)    Filter updates live as you type
-  enter       Confirm filter and return to navigation
-  esc         Clear filter and return to navigation
-  backspace   On empty input, exit search mode
-
-Actions
-  enter       View task details
-  a           Add new task
-  x           Delete selected task
-  R           Refresh list
-
-Field Editing
-  e           Edit title (modal)
-  s           Edit status (modal)
-  p           Edit priority (modal)
-  t           Edit type (modal)
-  y           Copy issue ID to clipboard
-  d           Edit description ($EDITOR)
-  N           Edit notes ($EDITOR)
-  D           Edit design ($EDITOR)
-  C           Edit acceptance criteria ($EDITOR)
-
-General
-  ?           Toggle this help
-  q           Quit
-  esc         Back/cancel
-
-Auto-refresh: polls every 2 seconds
-`
-	// Add custom commands section if any are configured
-	if len(m.customCommands) > 0 {
-		helpContent += "\nCustom Commands\n"
-		for _, cmd := range m.customCommands {
-			helpContent += fmt.Sprintf("  %-10s  %s (%s)\n", cmd.Key, cmd.Description, cmd.Context)
-		}
+	helpWidth, helpHeight := helpModalSize(m.width, m.height)
+	listHeight := helpHeight - 3
+	if listHeight < 1 {
+		listHeight = 1
 	}
+	m.helpList.SetSize(helpWidth-2, listHeight)
 
-	// Set content on the viewport
-	m.helpViewport.SetContent(helpContent)
-
-	// Render viewport inside overlay style
-	viewportContent := ui.OverlayStyle.
-		Width(m.width - 4).
-		Height(m.helpViewport.Height).
-		Render(m.helpViewport.View())
-	b.WriteString(viewportContent)
+	b.WriteString(ui.TitleStyle.Render("Keyboard Shortcuts"))
+	b.WriteString("\n")
+	b.WriteString(m.helpList.View())
 	b.WriteString("\n")
 
-	// Build status bar with scroll indicator
-	scrollInfo := fmt.Sprintf("%d%%", int(m.helpViewport.ScrollPercent()*100))
-	helpBar := fmt.Sprintf("j/k:scroll  ^u/^d:page  ?/esc:close  %s", scrollInfo)
+	helpBar := fmt.Sprintf("j/k:move  ^u/^d:page  enter:run  ?/esc:close  %d shortcuts", len(m.helpList.Items()))
 	b.WriteString(ui.HelpBarStyle.Render(helpBar))
 
-	return b.String()
+	helpBoxStyle := ui.OverlayStyle.Padding(0, 1)
+	modal := helpBoxStyle.
+		Width(helpWidth).
+		Height(helpHeight).
+		Render(b.String())
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		modal,
+	)
 }
 
 func (m Model) viewConfirm() string {

@@ -240,21 +240,28 @@ func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 func (m *Model) handleHelpKeys(msg tea.KeyMsg) tea.Cmd {
 	switch {
 	case key.Matches(msg, m.keys.Cancel), key.Matches(msg, m.keys.Help):
-		// Reset scroll position when closing help
-		m.helpViewport.GotoTop()
 		m.mode = ViewList
 	case key.Matches(msg, m.keys.Up):
-		m.helpViewport.LineUp(1)
+		m.helpList.CursorUp()
 	case key.Matches(msg, m.keys.Down):
-		m.helpViewport.LineDown(1)
+		m.helpList.CursorDown()
 	case key.Matches(msg, m.keys.PageUp):
-		m.helpViewport.HalfViewUp()
+		for i := 0; i < 10; i++ {
+			m.helpList.CursorUp()
+		}
 	case key.Matches(msg, m.keys.PageDown):
-		m.helpViewport.HalfViewDown()
+		for i := 0; i < 10; i++ {
+			m.helpList.CursorDown()
+		}
 	case key.Matches(msg, m.keys.Top):
-		m.helpViewport.GotoTop()
+		m.helpList.Select(0)
 	case key.Matches(msg, m.keys.Bottom):
-		m.helpViewport.GotoBottom()
+		items := m.helpList.Items()
+		if len(items) > 0 {
+			m.helpList.Select(len(items) - 1)
+		}
+	case msg.String() == "enter":
+		return m.executeHelpSelection()
 	}
 	return nil
 }
