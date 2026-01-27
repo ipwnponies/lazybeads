@@ -156,6 +156,21 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			return m.editDescriptionInEditor(task)
 		}
 
+	case key.Matches(msg, m.keys.EditNotes):
+		if task := m.getSelectedTask(); task != nil {
+			return m.editFieldInEditor(task, editorFieldNotes, task.Notes)
+		}
+
+	case key.Matches(msg, m.keys.EditDesign):
+		if task := m.getSelectedTask(); task != nil {
+			return m.editFieldInEditor(task, editorFieldDesign, task.Design)
+		}
+
+	case key.Matches(msg, m.keys.EditAcceptance):
+		if task := m.getSelectedTask(); task != nil {
+			return m.editFieldInEditor(task, editorFieldAcceptance, task.AcceptanceCriteria)
+		}
+
 	case key.Matches(msg, m.keys.Filter):
 		// Enter inline search mode in status bar
 		m.searchMode = true
@@ -211,11 +226,11 @@ func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 		return m.submitForm()
 
 	case key.Matches(msg, m.keys.Tab):
-		m.formFocus = (m.formFocus + 1) % 4
+		m.formFocus = (m.formFocus + 1) % formFieldCount
 		m.updateFormFocus()
 
 	case key.Matches(msg, m.keys.ShiftTab):
-		m.formFocus = (m.formFocus - 1 + 4) % 4
+		m.formFocus = (m.formFocus - 1 + formFieldCount) % formFieldCount
 		m.updateFormFocus()
 	}
 
@@ -381,6 +396,10 @@ func (m *Model) handleFilterKeys(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) editDescriptionInEditor(task *models.Task) tea.Cmd {
+	return m.editFieldInEditor(task, editorFieldDescription, task.Description)
+}
+
+func (m *Model) editFieldInEditor(task *models.Task, field editorField, content string) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "nano"
@@ -394,13 +413,16 @@ func (m *Model) editDescriptionInEditor(task *models.Task) tea.Cmd {
 	}
 
 	// Write current description to temp file
-	if _, err := tmpfile.WriteString(task.Description); err != nil {
+	if _, err := tmpfile.WriteString(content); err != nil {
 		tmpfile.Close()
 		os.Remove(tmpfile.Name())
 		m.err = fmt.Errorf("failed to write to temp file: %w", err)
 		return nil
 	}
 	tmpfile.Close()
+
+	m.editorField = field
+	m.editorTargetID = task.ID
 
 	tmpPath := tmpfile.Name()
 	c := exec.Command(editor, tmpPath)

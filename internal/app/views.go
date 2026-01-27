@@ -145,6 +145,9 @@ Field Editing
   t           Edit type (modal)
   y           Copy issue ID to clipboard
   d           Edit description ($EDITOR)
+  N           Edit notes ($EDITOR)
+  D           Edit design ($EDITOR)
+  C           Edit acceptance criteria ($EDITOR)
 
 General
   ?           Toggle this help
@@ -268,7 +271,7 @@ func (m Model) renderStatusBar() string {
 			{"h/l", "panel"},
 			{"/", "filter"},
 			{"enter", "detail"},
-			{"e/s/p/t/d", "edit"},
+			{"e/s/p/t/d/N/D/C", "edit"},
 			{"y", "copy"},
 			{"x", "delete"},
 			{"?", "help"},
@@ -337,33 +340,27 @@ func (m *Model) updateDetailContent() {
 		b.WriteString("\n")
 	}
 
-	if t.Description != "" {
+	renderWrappedSection := func(label, value string) {
+		if value == "" {
+			return
+		}
 		b.WriteString("\n")
-		b.WriteString(ui.DetailLabelStyle.Render("Description:"))
+		b.WriteString(ui.DetailLabelStyle.Render(label))
 		b.WriteString("\n")
-		// Wrap description to fit panel width
 		descWidth := m.detail.Width - 2
 		if descWidth < 20 {
 			descWidth = 20
 		}
-		wrappedDesc := lipgloss.NewStyle().Width(descWidth).Render(t.Description)
-		b.WriteString(wrappedDesc)
+		wrapped := lipgloss.NewStyle().Width(descWidth).Render(value)
+		b.WriteString(wrapped)
 		b.WriteString("\n")
 	}
 
-	if t.CloseReason != "" {
-		b.WriteString("\n")
-		b.WriteString(ui.DetailLabelStyle.Render("Close Reason:"))
-		b.WriteString("\n")
-		// Wrap close reason to fit panel width
-		descWidth := m.detail.Width - 2
-		if descWidth < 20 {
-			descWidth = 20
-		}
-		wrappedReason := lipgloss.NewStyle().Width(descWidth).Render(t.CloseReason)
-		b.WriteString(wrappedReason)
-		b.WriteString("\n")
-	}
+	renderWrappedSection("Description:", t.Description)
+	renderWrappedSection("Notes:", t.Notes)
+	renderWrappedSection("Design:", t.Design)
+	renderWrappedSection("Acceptance Criteria:", t.AcceptanceCriteria)
+	renderWrappedSection("Close Reason:", t.CloseReason)
 
 	if len(t.BlockedBy) > 0 {
 		b.WriteString("\n")
@@ -432,6 +429,33 @@ func (m Model) viewForm() string {
 	descInput := descStyle.Width(m.width - 20).Render(m.formDesc.View())
 	b.WriteString(descLabel + "\n" + descInput + "\n\n")
 
+	// Notes field
+	notesLabel := ui.FormLabelStyle.Render("Notes:")
+	notesStyle := ui.FormInputStyle
+	if m.formFocus == 2 {
+		notesStyle = ui.FormInputFocusedStyle
+	}
+	notesInput := notesStyle.Width(m.width - 20).Render(m.formNotes.View())
+	b.WriteString(notesLabel + "\n" + notesInput + "\n\n")
+
+	// Design field
+	designLabel := ui.FormLabelStyle.Render("Design:")
+	designStyle := ui.FormInputStyle
+	if m.formFocus == 3 {
+		designStyle = ui.FormInputFocusedStyle
+	}
+	designInput := designStyle.Width(m.width - 20).Render(m.formDesign.View())
+	b.WriteString(designLabel + "\n" + designInput + "\n\n")
+
+	// Acceptance field
+	acceptLabel := ui.FormLabelStyle.Render("Acceptance Criteria:")
+	acceptStyle := ui.FormInputStyle
+	if m.formFocus == 4 {
+		acceptStyle = ui.FormInputFocusedStyle
+	}
+	acceptInput := acceptStyle.Width(m.width - 20).Render(m.formAcceptance.View())
+	b.WriteString(acceptLabel + "\n" + acceptInput + "\n\n")
+
 	// Priority selector
 	priLabel := ui.FormLabelStyle.Render("Priority:")
 	priValue := ""
@@ -443,7 +467,7 @@ func (m Model) viewForm() string {
 		priValue += style.Render(fmt.Sprintf(" P%d ", i))
 	}
 	focusIndicator := ""
-	if m.formFocus == 2 {
+	if m.formFocus == 5 {
 		focusIndicator = " <"
 	}
 	b.WriteString(priLabel + priValue + focusIndicator + "\n\n")
@@ -460,7 +484,7 @@ func (m Model) viewForm() string {
 		typeValue += style.Render(fmt.Sprintf(" %s ", t))
 	}
 	focusIndicator = ""
-	if m.formFocus == 3 {
+	if m.formFocus == 6 {
 		focusIndicator = " <"
 	}
 	b.WriteString(typeLabel + typeValue + focusIndicator + "\n\n")

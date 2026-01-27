@@ -7,25 +7,28 @@ import (
 
 // Task represents a beads issue
 type Task struct {
-	ID              string     `json:"id"`
-	Title           string     `json:"title"`
-	Description     string     `json:"description,omitempty"`
-	Status          string     `json:"status"`
-	Priority        int        `json:"priority"`
-	Type            string     `json:"issue_type"`
-	Labels          []string   `json:"labels,omitempty"`
-	Assignee        string     `json:"assignee,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	CreatedBy       string     `json:"created_by,omitempty"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	ClosedAt        *time.Time `json:"closed_at,omitempty"`
-	CloseReason     string     `json:"close_reason,omitempty"`
-	DueDate         *time.Time `json:"due_date,omitempty"`
-	DeferUntil      *time.Time `json:"defer_until,omitempty"`
-	BlockedBy       []string   `json:"blocked_by,omitempty"`
-	Blocks          []string   `json:"blocks,omitempty"`
-	DependencyCount int        `json:"dependency_count,omitempty"`
-	DependentCount  int        `json:"dependent_count,omitempty"`
+	ID                 string     `json:"id"`
+	Title              string     `json:"title"`
+	Description        string     `json:"description,omitempty"`
+	Notes              string     `json:"notes,omitempty"`
+	Design             string     `json:"design,omitempty"`
+	AcceptanceCriteria string     `json:"acceptance_criteria,omitempty"`
+	Status             string     `json:"status"`
+	Priority           int        `json:"priority"`
+	Type               string     `json:"issue_type"`
+	Labels             []string   `json:"labels,omitempty"`
+	Assignee           string     `json:"assignee,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	CreatedBy          string     `json:"created_by,omitempty"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	ClosedAt           *time.Time `json:"closed_at,omitempty"`
+	CloseReason        string     `json:"close_reason,omitempty"`
+	DueDate            *time.Time `json:"due_date,omitempty"`
+	DeferUntil         *time.Time `json:"defer_until,omitempty"`
+	BlockedBy          []string   `json:"blocked_by,omitempty"`
+	Blocks             []string   `json:"blocks,omitempty"`
+	DependencyCount    int        `json:"dependency_count,omitempty"`
+	DependentCount     int        `json:"dependent_count,omitempty"`
 }
 
 // PriorityString returns a short priority label

@@ -24,6 +24,9 @@ type KeyMap struct {
 	EditPriority    key.Binding
 	EditType        key.Binding
 	EditDescription key.Binding
+	EditNotes       key.Binding
+	EditDesign      key.Binding
+	EditAcceptance  key.Binding
 	CopyID          key.Binding
 
 	// Filtering
@@ -34,14 +37,14 @@ type KeyMap struct {
 	All        key.Binding
 
 	// UI
-	Help      key.Binding
-	Quit      key.Binding
-	Cancel    key.Binding
-	Submit    key.Binding
-	Tab       key.Binding
-	ShiftTab  key.Binding
-	PrevView  key.Binding
-	NextView  key.Binding
+	Help     key.Binding
+	Quit     key.Binding
+	Cancel   key.Binding
+	Submit   key.Binding
+	Tab      key.Binding
+	ShiftTab key.Binding
+	PrevView key.Binding
+	NextView key.Binding
 
 	// Custom commands (loaded from config)
 	CustomCommands []key.Binding
@@ -118,6 +121,18 @@ func DefaultKeyMap() KeyMap {
 		EditDescription: key.NewBinding(
 			key.WithKeys("d"),
 			key.WithHelp("d", "edit description"),
+		),
+		EditNotes: key.NewBinding(
+			key.WithKeys("N"),
+			key.WithHelp("N", "edit notes"),
+		),
+		EditDesign: key.NewBinding(
+			key.WithKeys("D"),
+			key.WithHelp("D", "edit design"),
+		),
+		EditAcceptance: key.NewBinding(
+			key.WithKeys("C"),
+			key.WithHelp("C", "edit acceptance criteria"),
 		),
 
 		// Filtering

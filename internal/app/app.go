@@ -33,6 +33,17 @@ const (
 	ViewFilter
 )
 
+const formFieldCount = 7
+
+type editorField string
+
+const (
+	editorFieldDescription editorField = "description"
+	editorFieldNotes       editorField = "notes"
+	editorFieldDesign      editorField = "design"
+	editorFieldAcceptance  editorField = "acceptance_criteria"
+)
+
 // PanelFocus represents which panel is focused
 type PanelFocus int
 
@@ -88,13 +99,18 @@ type Model struct {
 	filterText   textinput.Model
 
 	// Form state
-	formTitle    textinput.Model
-	formDesc     textinput.Model
-	formPriority int
-	formType     string
-	formFocus    int
-	editing      bool
-	editingID    string
+	formTitle      textinput.Model
+	formDesc       textinput.Model
+	formNotes      textinput.Model
+	formDesign     textinput.Model
+	formAcceptance textinput.Model
+	formPriority   int
+	formType       string
+	formFocus      int
+	editing        bool
+	editingID      string
+	editorField    editorField
+	editorTargetID string
 
 	// Confirmation
 	confirmMsg    string
@@ -105,8 +121,8 @@ type Model struct {
 
 	// Filter state
 	filterQuery string
-	searchMode  bool             // true when inline search is active
-	searchInput textinput.Model  // text input for inline search in status bar
+	searchMode  bool            // true when inline search is active
+	searchInput textinput.Model // text input for inline search in status bar
 
 	// Status message (flash notification)
 	statusMsg string
@@ -153,8 +169,23 @@ func New() Model {
 
 	formDesc := textinput.New()
 	formDesc.Prompt = ""
-	formDesc.Placeholder = "Add details, context, or acceptance criteria (optional)"
+	formDesc.Placeholder = "Add description or context (optional)"
 	formDesc.CharLimit = 1000
+
+	formNotes := textinput.New()
+	formNotes.Prompt = ""
+	formNotes.Placeholder = "Add notes (optional)"
+	formNotes.CharLimit = 1000
+
+	formDesign := textinput.New()
+	formDesign.Prompt = ""
+	formDesign.Placeholder = "Add design notes (optional)"
+	formDesign.CharLimit = 1000
+
+	formAcceptance := textinput.New()
+	formAcceptance.Prompt = ""
+	formAcceptance.Placeholder = "Add acceptance criteria (optional)"
+	formAcceptance.CharLimit = 1000
 
 	// Load config (ignore errors, use empty config)
 	cfg, _ := config.Load()
@@ -182,6 +213,9 @@ func New() Model {
 		searchInput:     searchInput,
 		formTitle:       formTitle,
 		formDesc:        formDesc,
+		formNotes:       formNotes,
+		formDesign:      formDesign,
+		formAcceptance:  formAcceptance,
 		formPriority:    2,
 		formType:        "feature",
 		customCommands:  customCmds,
@@ -299,12 +333,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case editorFinishedMsg:
 		if msg.err != nil {
 			m.err = msg.err
-		} else if m.selected != nil {
-			// Update description
+			m.editorTargetID = ""
+			m.editorField = ""
+		} else if m.editorTargetID != "" {
+			targetID := m.editorTargetID
+			field := m.editorField
+			m.editorTargetID = ""
+			m.editorField = ""
 			return m, func() tea.Msg {
-				err := m.client.Update(m.selected.ID, beads.UpdateOptions{
-					Description: msg.content,
-				})
+				opts := beads.UpdateOptions{}
+				switch field {
+				case editorFieldDescription:
+					opts.Description = msg.content
+				case editorFieldNotes:
+					opts.Notes = msg.content
+				case editorFieldDesign:
+					opts.Design = msg.content
+				case editorFieldAcceptance:
+					opts.AcceptanceCriteria = msg.content
+				}
+				err := m.client.Update(targetID, opts)
 				return taskUpdatedMsg{err: err}
 			}
 		}

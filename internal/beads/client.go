@@ -95,11 +95,14 @@ func (c *Client) Show(id string) (*models.Task, error) {
 
 // CreateOptions holds options for creating a task
 type CreateOptions struct {
-	Title       string
-	Description string
-	Type        string // task, bug, feature, epic, chore
-	Priority    int    // 0-4
-	Labels      []string
+	Title              string
+	Description        string
+	Notes              string
+	Design             string
+	AcceptanceCriteria string
+	Type               string // task, bug, feature, epic, chore
+	Priority           int    // 0-4
+	Labels             []string
 }
 
 // Create creates a new task
@@ -114,6 +117,15 @@ func (c *Client) Create(opts CreateOptions) (*models.Task, error) {
 	}
 	if opts.Description != "" {
 		args = append(args, "-d", opts.Description)
+	}
+	if opts.Notes != "" {
+		args = append(args, "--notes", opts.Notes)
+	}
+	if opts.Design != "" {
+		args = append(args, "--design", opts.Design)
+	}
+	if opts.AcceptanceCriteria != "" {
+		args = append(args, "--acceptance", opts.AcceptanceCriteria)
 	}
 	if len(opts.Labels) > 0 {
 		args = append(args, "-l", strings.Join(opts.Labels, ","))
@@ -135,12 +147,15 @@ func (c *Client) Create(opts CreateOptions) (*models.Task, error) {
 
 // UpdateOptions holds options for updating a task
 type UpdateOptions struct {
-	Status      string
-	Priority    *int
-	Title       string
-	Assignee    string
-	Type        string
-	Description string
+	Status             string
+	Priority           *int
+	Title              string
+	Assignee           string
+	Type               string
+	Description        string
+	Notes              string
+	Design             string
+	AcceptanceCriteria string
 }
 
 // Update modifies an existing task
@@ -164,6 +179,15 @@ func (c *Client) Update(id string, opts UpdateOptions) error {
 	}
 	if opts.Description != "" {
 		args = append(args, "-d", opts.Description)
+	}
+	if opts.Notes != "" {
+		args = append(args, "--notes", opts.Notes)
+	}
+	if opts.Design != "" {
+		args = append(args, "--design", opts.Design)
+	}
+	if opts.AcceptanceCriteria != "" {
+		args = append(args, "--acceptance", opts.AcceptanceCriteria)
 	}
 
 	cmd := exec.Command("bd", args...)
