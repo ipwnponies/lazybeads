@@ -1,10 +1,12 @@
 package app
 
 import (
+	"fmt"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"lazybeads/internal/beads"
 	"lazybeads/internal/models"
 )
 
@@ -68,6 +70,46 @@ func (m Model) loadTasks() tea.Cmd {
 	return func() tea.Msg {
 		// Load all tasks so we can distribute them to the 3 panels
 		tasks, err := m.client.List("--all")
+		if err != nil {
+			return tasksLoadedMsg{tasks: tasks, err: err}
+		}
+
+		tasks, err = enrichDeferredTasks(tasks, m.client)
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
+}
+
+func enrichDeferredTasks(tasks []models.Task, client *beads.Client) ([]models.Task, error) {
+	deferred, err := client.List("--deferred")
+	if err != nil {
+		return tasks, err
+	}
+	if len(deferred) == 0 {
+		return tasks, nil
+	}
+
+	indexByID := make(map[string]int, len(tasks))
+	for i, task := range tasks {
+		indexByID[task.ID] = i
+	}
+
+	var firstErr error
+	for _, task := range deferred {
+		// TODO: Remove this bd show fetch once `bd list --json` includes defer_until.
+		fullTask, err := client.Show(task.ID)
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to load deferred task %s: %w", task.ID, err)
+			}
+			continue
+		}
+
+		if idx, ok := indexByID[fullTask.ID]; ok {
+			tasks[idx] = *fullTask
+		} else {
+			tasks = append(tasks, *fullTask)
+		}
+	}
+
+	return tasks, firstErr
 }

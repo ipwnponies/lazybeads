@@ -3,7 +3,9 @@ package app
 import (
 	"fmt"
 	"io"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
@@ -48,53 +50,13 @@ func (d panelDelegate) Render(w io.Writer, m list.Model, index int, item list.It
 
 	isSelected := index == m.Index()
 
-	priority := t.task.PriorityString()
-	issueID := t.task.ID
-	title := t.task.Title
-
 	width := m.Width()
 	if width <= 0 {
 		width = 40
 	}
 
-	// Calculate available width for title (account for priority, issue ID, spaces)
-	// Format: " P# issue-id title"
-	prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", priority, issueID))
-	maxTitleWidth := width - prefixWidth
-	if maxTitleWidth < 5 {
-		maxTitleWidth = 5
-	}
-
-	// Truncate title if too long
-	if lipgloss.Width(title) > maxTitleWidth {
-		// Truncate with ellipsis
-		for lipgloss.Width(title+"...") > maxTitleWidth && len(title) > 0 {
-			title = title[:len(title)-1]
-		}
-		title = title + "..."
-	}
-
-	if isSelected && d.focused {
-		// Show highlight only when panel is focused
-		line := fmt.Sprintf(" %s %s %s", priority, issueID, title)
-		style := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("15")).
-			Background(lipgloss.Color("#2a4a6d")).
-			Bold(true).
-			Width(width)
-		fmt.Fprint(w, style.Render(line))
-	} else {
-		priorityStyle := ui.PriorityStyle(t.task.Priority)
-		idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
-
-		line := fmt.Sprintf(" %s %s %s",
-			priorityStyle.Render(priority),
-			idStyle.Render(issueID),
-			title)
-		// Ensure line doesn't exceed width
-		style := lipgloss.NewStyle().Width(width).MaxWidth(width)
-		fmt.Fprint(w, style.Render(line))
-	}
+	line := formatTaskLine(t.task, width, isSelected, d.focused)
+	fmt.Fprint(w, line)
 }
 
 // NewPanel creates a new panel with the given title
@@ -383,32 +345,7 @@ func (p PanelModel) viewCollapsed() string {
 	var contentLine string
 	if len(p.tasks) > 0 {
 		task := p.tasks[0]
-		priority := task.PriorityString()
-		issueID := task.ID
-		taskTitle := task.Title
-
-		// Calculate available width for title
-		prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", priority, issueID))
-		maxTitleWidth := contentWidth - prefixWidth
-		if maxTitleWidth < 5 {
-			maxTitleWidth = 5
-		}
-
-		// Truncate title if needed
-		if lipgloss.Width(taskTitle) > maxTitleWidth {
-			for lipgloss.Width(taskTitle+"...") > maxTitleWidth && len(taskTitle) > 0 {
-				taskTitle = taskTitle[:len(taskTitle)-1]
-			}
-			taskTitle = taskTitle + "..."
-		}
-
-		// Style the task line
-		priorityStyle := ui.PriorityStyle(task.Priority)
-		idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
-		contentLine = fmt.Sprintf(" %s %s %s",
-			priorityStyle.Render(priority),
-			idStyle.Render(issueID),
-			taskTitle)
+		contentLine = formatTaskLine(task, contentWidth, false, false)
 	} else {
 		emptyStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted).Italic(true)
 		contentLine = emptyStyle.Render("(no tasks)")
@@ -427,4 +364,164 @@ func (p PanelModel) viewCollapsed() string {
 	bottomBorder := borderStyle.Render("╰" + strings.Repeat("─", width-2) + "╯")
 
 	return topBorder + "\n" + middleRow + "\n" + bottomBorder
+}
+
+func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) string {
+	priority := task.PriorityString()
+	issueID := task.ID
+	title := task.Title
+
+	var suffix string
+	deferred := task.DeferUntil != nil
+	if deferred {
+		suffix = fmt.Sprintf(" (⏳ %s)", formatRelativeTime(*task.DeferUntil, time.Now()))
+	}
+	stateStyles := defaultStateStyles()
+	styleConfig := deferredStyleConfig(stateStyles["deferred"])
+
+	// Calculate available width for title (account for priority, issue ID, spaces, and suffix)
+	// Format: " P# issue-id title (:timer: in 5m)"
+	prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s ", priority, issueID))
+	suffixWidth := lipgloss.Width(suffix)
+	maxTitleWidth := width - prefixWidth - suffixWidth
+	if maxTitleWidth < 0 {
+		maxTitleWidth = 0
+	}
+
+	title = truncateTitle(title, maxTitleWidth)
+
+	if isSelected && focused {
+		// Show highlight only when panel is focused
+		line := fmt.Sprintf(" %s %s %s%s", priority, issueID, title, suffix)
+		bgColor := lipgloss.Color("#2a4a6d")
+		fgColor := lipgloss.Color("15")
+		faint := false
+		if deferred {
+			bgColor = styleConfig.FocusedBackground
+			fgColor = styleConfig.FocusedForeground
+			faint = true
+		}
+		style := lipgloss.NewStyle().
+			Foreground(fgColor).
+			Background(bgColor).
+			Bold(true).
+			Faint(faint).
+			Width(width)
+		return style.Render(line)
+	}
+
+	priorityStyle := ui.PriorityStyle(task.Priority)
+	idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+	titleStyle := lipgloss.NewStyle().Foreground(ui.ColorWhite)
+	suffixStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+
+	if deferred {
+		priorityStyle = priorityStyle.Faint(true)
+		idStyle = idStyle.Faint(true)
+		titleStyle = titleStyle.Faint(true)
+		suffixStyle = suffixStyle.Faint(true)
+	}
+
+	line := fmt.Sprintf(" %s %s %s%s",
+		priorityStyle.Render(priority),
+		idStyle.Render(issueID),
+		titleStyle.Render(title),
+		suffixStyle.Render(suffix))
+
+	style := lipgloss.NewStyle().Width(width).MaxWidth(width)
+	return style.Render(line)
+}
+
+func truncateTitle(title string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(title) <= maxWidth {
+		return title
+	}
+	for lipgloss.Width(title+"...") > maxWidth && len(title) > 0 {
+		title = title[:len(title)-1]
+	}
+	return title + "..."
+}
+
+func formatRelativeTime(target time.Time, now time.Time) string {
+	delta := target.Sub(now)
+	future := delta >= 0
+	abs := delta
+	if abs < 0 {
+		abs = -abs
+	}
+
+	seconds := abs.Seconds()
+	if seconds < 1 {
+		seconds = 1
+	}
+
+	var value int
+	var unit string
+	switch {
+	case abs.Hours() >= 48:
+		value = int(math.Ceil(abs.Hours() / 24))
+		unit = "d"
+	case abs.Minutes() >= 90:
+		value = int(math.Ceil(abs.Hours()))
+		unit = "h"
+	case abs.Seconds() >= 90:
+		value = int(math.Ceil(abs.Minutes()))
+		unit = "m"
+	default:
+		value = int(math.Ceil(seconds))
+		unit = "s"
+	}
+
+	if future {
+		return fmt.Sprintf("in %d%s", value, unit)
+	}
+	return fmt.Sprintf("%d%s ago", value, unit)
+}
+
+type deferStyleConfig struct {
+	FocusedBackground lipgloss.Color
+	FocusedForeground lipgloss.Color
+	MarkerColor       lipgloss.Color
+}
+
+type deferredStyleName string
+
+const (
+	deferredStyleAmber deferredStyleName = "amber"
+	deferredStyleSlate deferredStyleName = "slate"
+)
+
+type stateStyleMap map[string]deferredStyleName
+
+func defaultStateStyles() stateStyleMap {
+	return stateStyleMap{
+		"deferred": deferredStyleSlate,
+		"blocked":  deferredStyleAmber,
+	}
+}
+
+func deferredStyleConfig(styleName deferredStyleName) deferStyleConfig {
+	switch styleName {
+	case deferredStyleAmber:
+		return deferStyleConfig{
+			FocusedBackground: lipgloss.Color("#5a4a00"),
+			FocusedForeground: lipgloss.Color("15"),
+			MarkerColor:       lipgloss.Color("#c9a400"),
+		}
+	case deferredStyleSlate:
+		return deferStyleConfig{
+			FocusedBackground: lipgloss.Color("#3a3f45"),
+			FocusedForeground: lipgloss.Color("15"),
+			MarkerColor:       lipgloss.Color("#9aa0a6"),
+		}
+	default:
+		return deferStyleConfig{
+			FocusedBackground: lipgloss.Color("#3a3f45"),
+			FocusedForeground: lipgloss.Color("15"),
+			MarkerColor:       lipgloss.Color("#9aa0a6"),
+		}
+	}
 }

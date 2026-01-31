@@ -319,7 +319,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tasksLoadedMsg:
 		if msg.err != nil {
 			m.err = msg.err
-		} else {
+		}
+		if msg.tasks != nil {
 			m.tasks = msg.tasks
 			m.distributeTasks()
 		}
