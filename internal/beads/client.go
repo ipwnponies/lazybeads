@@ -73,6 +73,21 @@ func (c *Client) Ready() ([]models.Task, error) {
 	return tasks, nil
 }
 
+// Blocked returns tasks that are blocked by open dependencies
+func (c *Client) Blocked() ([]models.Task, error) {
+	out, err := exec.Command("bd", "blocked", "--json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd blocked failed: %w", err)
+	}
+
+	var tasks []models.Task
+	if err := json.Unmarshal(out, &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse bd blocked output: %w", err)
+	}
+
+	return tasks, nil
+}
+
 // Show returns details for a specific task
 func (c *Client) Show(id string) (*models.Task, error) {
 	out, err := exec.Command("bd", "show", id, "--json").Output()

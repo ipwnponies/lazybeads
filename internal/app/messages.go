@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -75,6 +76,7 @@ func (m Model) loadTasks() tea.Cmd {
 		}
 
 		tasks, err = enrichDeferredTasks(tasks, m.client)
+		tasks, err = enrichBlockedTasks(tasks, m.client, err)
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
@@ -112,4 +114,29 @@ func enrichDeferredTasks(tasks []models.Task, client *beads.Client) ([]models.Ta
 	}
 
 	return tasks, firstErr
+}
+
+func enrichBlockedTasks(tasks []models.Task, client *beads.Client, prevErr error) ([]models.Task, error) {
+	blocked, err := client.Blocked()
+	if err != nil {
+		return tasks, errors.Join(prevErr, err)
+	}
+	if len(blocked) == 0 {
+		return tasks, prevErr
+	}
+
+	indexByID := make(map[string]int, len(tasks))
+	for i, task := range tasks {
+		indexByID[task.ID] = i
+	}
+
+	for _, task := range blocked {
+		if idx, ok := indexByID[task.ID]; ok {
+			tasks[idx].BlockedBy = task.BlockedBy
+		} else {
+			tasks = append(tasks, task)
+		}
+	}
+
+	return tasks, prevErr
 }

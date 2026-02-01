@@ -341,11 +341,19 @@ func (m *Model) updateDetailContent() {
 	renderWrappedSection("Close Reason:", t.CloseReason)
 
 	if len(t.BlockedBy) > 0 {
+		taskTitles := make(map[string]string, len(m.tasks))
+		for _, task := range m.tasks {
+			taskTitles[task.ID] = task.Title
+		}
 		b.WriteString("\n")
 		b.WriteString(ui.DetailLabelStyle.Render("Blocked by:"))
 		b.WriteString("\n")
 		for _, id := range t.BlockedBy {
-			b.WriteString("  - " + id + "\n")
+			line := id
+			if title, ok := taskTitles[id]; ok && title != "" {
+				line = fmt.Sprintf("%s %s", id, title)
+			}
+			b.WriteString("  - " + line + "\n")
 		}
 	}
 
