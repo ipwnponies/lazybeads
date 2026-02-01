@@ -54,30 +54,30 @@ type KeyMap struct {
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		// Navigation (vim-style)
-		Up: key.NewBinding(
-			key.WithKeys("k", "up"),
-			key.WithHelp("j/k", "navigate"),
-		),
-		Down: key.NewBinding(
-			key.WithKeys("j", "down"),
-			key.WithHelp("", ""),
-		),
-		Top: key.NewBinding(
-			key.WithKeys("g"),
-			key.WithHelp("g/G", "top/bottom"),
-		),
-		Bottom: key.NewBinding(
-			key.WithKeys("G"),
-			key.WithHelp("", ""),
-		),
-		PageUp: key.NewBinding(
-			key.WithKeys("ctrl+u", "pgup"),
-			key.WithHelp("^u/^d", "page up/down"),
-		),
-		PageDown: key.NewBinding(
-			key.WithKeys("ctrl+d", "pgdown"),
-			key.WithHelp("", ""),
-		),
+	Up: key.NewBinding(
+		key.WithKeys("k", "up"),
+		key.WithHelp("k/up", "move up"),
+	),
+	Down: key.NewBinding(
+		key.WithKeys("j", "down"),
+		key.WithHelp("j/down", "move down"),
+	),
+	Top: key.NewBinding(
+		key.WithKeys("g"),
+		key.WithHelp("g", "top"),
+	),
+	Bottom: key.NewBinding(
+		key.WithKeys("G"),
+		key.WithHelp("G", "bottom"),
+	),
+	PageUp: key.NewBinding(
+		key.WithKeys("ctrl+u", "pgup"),
+		key.WithHelp("^u/pgup", "page up"),
+	),
+	PageDown: key.NewBinding(
+		key.WithKeys("ctrl+d", "pgdown"),
+		key.WithHelp("^d/pgdn", "page down"),
+	),
 
 		// Actions
 		Select: key.NewBinding(
@@ -182,14 +182,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "prev field"),
 		),
-		PrevView: key.NewBinding(
-			key.WithKeys("h", "left", "shift+tab"),
-			key.WithHelp("h/l, ←/→, tab/shift+tab", "prev/next view"),
-		),
-		NextView: key.NewBinding(
-			key.WithKeys("l", "right", "tab"),
-			key.WithHelp("", ""),
-		),
+	PrevView: key.NewBinding(
+		key.WithKeys("h", "left", "shift+tab"),
+		key.WithHelp("h/left/shift+tab", "prev view"),
+	),
+	NextView: key.NewBinding(
+		key.WithKeys("l", "right", "tab"),
+		key.WithHelp("l/right/tab", "next view"),
+	),
 	}
 }
 
@@ -211,7 +211,11 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	groups := [][]key.Binding{
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown},
 		{k.Select, k.Add, k.Delete, k.Refresh},
+		{k.EditTitle, k.EditStatus, k.EditPriority, k.EditType},
+		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.CopyID},
 		{k.Filter, k.Ready, k.Open, k.All},
+		{k.Submit, k.Tab, k.ShiftTab},
+		{k.PrevView, k.NextView},
 		{k.Help, k.Quit, k.Cancel},
 	}
 	// Add custom commands as a separate group if present
