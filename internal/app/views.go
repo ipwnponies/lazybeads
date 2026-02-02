@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -312,7 +313,7 @@ func (m *Model) updateDetailContent() {
 		b.WriteString("\n")
 	}
 
-	if t.DeferUntil != nil {
+	if t.IsDeferred(time.Now()) {
 		b.WriteString(ui.DetailLabelStyle.Render("Deferred:"))
 		b.WriteString(ui.DetailValueStyle.Render("until " + t.DeferUntil.Format("2006-01-02")))
 		b.WriteString("\n")

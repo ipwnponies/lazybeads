@@ -372,7 +372,8 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 	title := task.Title
 
 	var suffix string
-	deferred := task.DeferUntil != nil
+	now := time.Now()
+	deferred := task.IsDeferred(now)
 	blocked := task.IsBlocked()
 	stateMarker := " "
 	if blocked {
@@ -390,7 +391,7 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 	if deferred || blocked {
 		var parts []string
 		if deferred {
-			parts = append(parts, fmt.Sprintf("(%s)", formatRelativeTime(*task.DeferUntil, time.Now())))
+			parts = append(parts, fmt.Sprintf("(%s)", formatRelativeTime(*task.DeferUntil, now)))
 		}
 		if blocked {
 			blockedIDs := strings.Join(task.BlockedBy, ", ")

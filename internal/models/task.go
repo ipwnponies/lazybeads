@@ -68,6 +68,14 @@ func (t Task) IsBlocked() bool {
 	return len(t.BlockedBy) > 0
 }
 
+// IsDeferred returns true if task has an active deferral.
+func (t Task) IsDeferred(now time.Time) bool {
+	if t.DeferUntil == nil {
+		return false
+	}
+	return t.DeferUntil.After(now)
+}
+
 // FilePath returns the path to the task's markdown file
 func (t Task) FilePath() string {
 	return filepath.Join(".beads", "issues", t.ID+".md")
