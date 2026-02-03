@@ -219,11 +219,14 @@ func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 		return nil
 
 	case key.Matches(msg, m.keys.Submit):
-		return m.submitForm()
+		m.formFocus = 7
+		m.updateFormFocus()
+		return nil
 
 	case msg.String() == "enter":
-		// Enter submits from any field
-		return m.submitForm()
+		if m.formFocus == 7 {
+			return m.submitForm()
+		}
 
 	case key.Matches(msg, m.keys.Tab):
 		m.formFocus = (m.formFocus + 1) % formFieldCount
@@ -232,6 +235,25 @@ func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, m.keys.ShiftTab):
 		m.formFocus = (m.formFocus - 1 + formFieldCount) % formFieldCount
 		m.updateFormFocus()
+	}
+
+	return nil
+}
+
+func (m *Model) handleFormMouse(msg tea.MouseMsg) tea.Cmd {
+	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+		return nil
+	}
+
+	bounds := m.formSubmitBounds
+	if bounds.W == 0 || bounds.H == 0 {
+		return nil
+	}
+
+	if msg.X >= bounds.X && msg.X < bounds.X+bounds.W && msg.Y >= bounds.Y && msg.Y < bounds.Y+bounds.H {
+		m.formFocus = 7
+		m.updateFormFocus()
+		return m.submitForm()
 	}
 
 	return nil

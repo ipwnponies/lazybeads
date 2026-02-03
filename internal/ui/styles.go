@@ -4,15 +4,15 @@ import "github.com/charmbracelet/lipgloss"
 
 // Colors - lazygit-inspired theme
 var (
-	ColorPrimary    = lipgloss.Color("2")       // Green (selected/active)
-	ColorSecondary  = lipgloss.Color("4")       // Blue (options/help keys)
-	ColorAccent     = lipgloss.Color("6")       // Cyan (search/accent)
-	ColorWarning    = lipgloss.Color("3")       // Yellow
-	ColorDanger     = lipgloss.Color("1")       // Red
-	ColorMuted      = lipgloss.Color("8")       // Bright black (gray)
-	ColorWhite      = lipgloss.Color("7")       // White
-	ColorMagenta    = lipgloss.Color("5")       // Magenta
-	ColorBorder     = lipgloss.Color("8")       // Gray border
+	ColorPrimary   = lipgloss.Color("2") // Green (selected/active)
+	ColorSecondary = lipgloss.Color("4") // Blue (options/help keys)
+	ColorAccent    = lipgloss.Color("6") // Cyan (search/accent)
+	ColorWarning   = lipgloss.Color("3") // Yellow
+	ColorDanger    = lipgloss.Color("1") // Red
+	ColorMuted     = lipgloss.Color("8") // Bright black (gray)
+	ColorWhite     = lipgloss.Color("7") // White
+	ColorMagenta   = lipgloss.Color("5") // Magenta
+	ColorBorder    = lipgloss.Color("8") // Gray border
 )
 
 // Priority colors
@@ -118,6 +118,20 @@ var (
 				Border(lipgloss.RoundedBorder()).
 				BorderForeground(ColorPrimary).
 				Padding(0, 1)
+
+	FormButtonStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder()).
+			BorderForeground(ColorBorder).
+			Foreground(ColorWhite).
+			Padding(0, 2)
+
+	FormButtonFocusedStyle = lipgloss.NewStyle().
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(ColorPrimary).
+				Background(ColorPrimary).
+				Foreground(ColorWhite).
+				Bold(true).
+				Padding(0, 2)
 
 	// Overlay/modal
 	OverlayStyle = lipgloss.NewStyle().

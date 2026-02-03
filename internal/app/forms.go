@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 
 	"lazybeads/internal/beads"
 )
@@ -18,18 +21,30 @@ func (m *Model) updateForm(msg tea.Msg) tea.Cmd {
 		m.formTitle, cmd = m.formTitle.Update(msg)
 		cmds = append(cmds, cmd)
 	case 1:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
+			bumpTextareaHeightForNewline(&m.formDesc)
+		}
 		var cmd tea.Cmd
 		m.formDesc, cmd = m.formDesc.Update(msg)
 		cmds = append(cmds, cmd)
 	case 2:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
+			bumpTextareaHeightForNewline(&m.formNotes)
+		}
 		var cmd tea.Cmd
 		m.formNotes, cmd = m.formNotes.Update(msg)
 		cmds = append(cmds, cmd)
 	case 3:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
+			bumpTextareaHeightForNewline(&m.formDesign)
+		}
 		var cmd tea.Cmd
 		m.formDesign, cmd = m.formDesign.Update(msg)
 		cmds = append(cmds, cmd)
 	case 4:
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
+			bumpTextareaHeightForNewline(&m.formAcceptance)
+		}
 		var cmd tea.Cmd
 		m.formAcceptance, cmd = m.formAcceptance.Update(msg)
 		cmds = append(cmds, cmd)
@@ -68,6 +83,7 @@ func (m *Model) updateForm(msg tea.Msg) tea.Cmd {
 		}
 	}
 
+	m.updateFormTextAreaHeights()
 	return tea.Batch(cmds...)
 }
 
@@ -81,6 +97,7 @@ func (m *Model) resetForm() {
 	m.formType = "feature"
 	m.formFocus = 0
 	m.updateFormFocus()
+	m.updateFormTextAreaHeights()
 }
 
 func (m *Model) updateFormFocus() {
@@ -100,6 +117,85 @@ func (m *Model) updateFormFocus() {
 		m.formDesign.Focus()
 	case 4:
 		m.formAcceptance.Focus()
+	}
+}
+
+func (m *Model) updateFormTextAreaHeights() {
+	descWidth := m.formDesc.Width()
+	if descWidth < 1 {
+		descWidth = 1
+	}
+	notesWidth := m.formNotes.Width()
+	if notesWidth < 1 {
+		notesWidth = 1
+	}
+	designWidth := m.formDesign.Width()
+	if designWidth < 1 {
+		designWidth = 1
+	}
+	acceptWidth := m.formAcceptance.Width()
+	if acceptWidth < 1 {
+		acceptWidth = 1
+	}
+
+	m.formDesc.SetHeight(calcTextareaHeight(m.formDesc.Value(), descWidth))
+	m.formNotes.SetHeight(calcTextareaHeight(m.formNotes.Value(), notesWidth))
+	m.formDesign.SetHeight(calcTextareaHeight(m.formDesign.Value(), designWidth))
+	m.formAcceptance.SetHeight(calcTextareaHeight(m.formAcceptance.Value(), acceptWidth))
+	m.updateFormSubmitBounds()
+}
+
+func calcTextareaHeight(value string, width int) int {
+	if width < 1 {
+		return 1
+	}
+	lines := strings.Split(value, "\n")
+	height := 0
+	for _, line := range lines {
+		if line == "" {
+			height++
+			continue
+		}
+		normalized := strings.ReplaceAll(line, "\t", "    ")
+		lineWidth := runewidth.StringWidth(normalized)
+		if lineWidth == 0 {
+			height++
+			continue
+		}
+		wrapped := (lineWidth + width - 1) / width
+		if lineWidth%width == 0 {
+			wrapped++
+		}
+		height += wrapped
+	}
+	if height < 1 {
+		return 1
+	}
+	return height
+}
+
+func bumpTextareaHeightForNewline(ta *textarea.Model) {
+	width := ta.Width()
+	if width < 1 {
+		width = 1
+	}
+	target := calcTextareaHeight(ta.Value(), width) + 1
+	if ta.Height() < target {
+		ta.SetHeight(target)
+	}
+}
+
+func (m *Model) updateFormSubmitBounds() {
+	blocks, button, _ := m.formViewBlocks()
+	y := 0
+	for _, block := range blocks {
+		y += lipgloss.Height(block)
+	}
+	m.formSubmitBounds = formBounds{
+		X: 0,
+		Y: y,
+		W: lipgloss.Width(button),
+		H: lipgloss.Height(button),
 	}
 }
 

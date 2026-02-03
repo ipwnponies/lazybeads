@@ -54,30 +54,30 @@ type KeyMap struct {
 func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		// Navigation (vim-style)
-	Up: key.NewBinding(
-		key.WithKeys("k", "up"),
-		key.WithHelp("k/up", "move up"),
-	),
-	Down: key.NewBinding(
-		key.WithKeys("j", "down"),
-		key.WithHelp("j/down", "move down"),
-	),
-	Top: key.NewBinding(
-		key.WithKeys("g"),
-		key.WithHelp("g", "top"),
-	),
-	Bottom: key.NewBinding(
-		key.WithKeys("G"),
-		key.WithHelp("G", "bottom"),
-	),
-	PageUp: key.NewBinding(
-		key.WithKeys("ctrl+u", "pgup"),
-		key.WithHelp("^u/pgup", "page up"),
-	),
-	PageDown: key.NewBinding(
-		key.WithKeys("ctrl+d", "pgdown"),
-		key.WithHelp("^d/pgdn", "page down"),
-	),
+		Up: key.NewBinding(
+			key.WithKeys("k", "up"),
+			key.WithHelp("k/up", "move up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("j", "down"),
+			key.WithHelp("j/down", "move down"),
+		),
+		Top: key.NewBinding(
+			key.WithKeys("g"),
+			key.WithHelp("g", "top"),
+		),
+		Bottom: key.NewBinding(
+			key.WithKeys("G"),
+			key.WithHelp("G", "bottom"),
+		),
+		PageUp: key.NewBinding(
+			key.WithKeys("ctrl+u", "pgup"),
+			key.WithHelp("^u/pgup", "page up"),
+		),
+		PageDown: key.NewBinding(
+			key.WithKeys("ctrl+d", "pgdown"),
+			key.WithHelp("^d/pgdn", "page down"),
+		),
 
 		// Actions
 		Select: key.NewBinding(
@@ -171,8 +171,8 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("esc", "cancel"),
 		),
 		Submit: key.NewBinding(
-			key.WithKeys("ctrl+s"),
-			key.WithHelp("^s", "submit"),
+			key.WithKeys("alt+enter"),
+			key.WithHelp("alt+enter", "focus submit"),
 		),
 		Tab: key.NewBinding(
 			key.WithKeys("tab"),
@@ -182,14 +182,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "prev field"),
 		),
-	PrevView: key.NewBinding(
-		key.WithKeys("h", "left", "shift+tab"),
-		key.WithHelp("h/left/shift+tab", "prev view"),
-	),
-	NextView: key.NewBinding(
-		key.WithKeys("l", "right", "tab"),
-		key.WithHelp("l/right/tab", "next view"),
-	),
+		PrevView: key.NewBinding(
+			key.WithKeys("h", "left", "shift+tab"),
+			key.WithHelp("h/left/shift+tab", "prev view"),
+		),
+		NextView: key.NewBinding(
+			key.WithKeys("l", "right", "tab"),
+			key.WithHelp("l/right/tab", "next view"),
+		),
 	}
 }
 

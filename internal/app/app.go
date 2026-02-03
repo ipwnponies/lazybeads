@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,7 +35,7 @@ const (
 	ViewFilter
 )
 
-const formFieldCount = 7
+const formFieldCount = 8
 
 type editorField string
 
@@ -101,18 +102,19 @@ type Model struct {
 	helpItems  []helpItem
 
 	// Form state
-	formTitle      textinput.Model
-	formDesc       textinput.Model
-	formNotes      textinput.Model
-	formDesign     textinput.Model
-	formAcceptance textinput.Model
-	formPriority   int
-	formType       string
-	formFocus      int
-	editing        bool
-	editingID      string
-	editorField    editorField
-	editorTargetID string
+	formTitle        textinput.Model
+	formDesc         textarea.Model
+	formNotes        textarea.Model
+	formDesign       textarea.Model
+	formAcceptance   textarea.Model
+	formPriority     int
+	formType         string
+	formFocus        int
+	formSubmitBounds formBounds
+	editing          bool
+	editingID        string
+	editorField      editorField
+	editorTargetID   string
 
 	// Confirmation
 	confirmMsg    string
@@ -135,6 +137,13 @@ type Model struct {
 
 	// Custom commands from config
 	customCommands []config.CustomCommand
+}
+
+type formBounds struct {
+	X int
+	Y int
+	W int
+	H int
 }
 
 // New creates a new application model
@@ -176,25 +185,37 @@ func New() Model {
 	formTitle.Placeholder = "Enter a brief, descriptive title for this task"
 	formTitle.CharLimit = 200
 
-	formDesc := textinput.New()
+	formDesc := textarea.New()
 	formDesc.Prompt = ""
 	formDesc.Placeholder = "Add description or context (optional)"
 	formDesc.CharLimit = 1000
+	formDesc.ShowLineNumbers = false
+	formDesc.FocusedStyle.Base = ui.FormInputFocusedStyle
+	formDesc.BlurredStyle.Base = ui.FormInputStyle
 
-	formNotes := textinput.New()
+	formNotes := textarea.New()
 	formNotes.Prompt = ""
 	formNotes.Placeholder = "Add notes (optional)"
 	formNotes.CharLimit = 1000
+	formNotes.ShowLineNumbers = false
+	formNotes.FocusedStyle.Base = ui.FormInputFocusedStyle
+	formNotes.BlurredStyle.Base = ui.FormInputStyle
 
-	formDesign := textinput.New()
+	formDesign := textarea.New()
 	formDesign.Prompt = ""
 	formDesign.Placeholder = "Add design notes (optional)"
 	formDesign.CharLimit = 1000
+	formDesign.ShowLineNumbers = false
+	formDesign.FocusedStyle.Base = ui.FormInputFocusedStyle
+	formDesign.BlurredStyle.Base = ui.FormInputStyle
 
-	formAcceptance := textinput.New()
+	formAcceptance := textarea.New()
 	formAcceptance.Prompt = ""
 	formAcceptance.Placeholder = "Add acceptance criteria (optional)"
 	formAcceptance.CharLimit = 1000
+	formAcceptance.ShowLineNumbers = false
+	formAcceptance.FocusedStyle.Base = ui.FormInputFocusedStyle
+	formAcceptance.BlurredStyle.Base = ui.FormInputStyle
 
 	// Load config (ignore errors, use empty config)
 	cfg, _ := config.Load()
@@ -314,6 +335,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If mode changed or search mode was just activated, don't pass key to child components
 		if m.mode != prevMode || (m.searchMode && !prevSearchMode) {
 			return m, tea.Batch(cmds...)
+		}
+
+	case tea.MouseMsg:
+		if m.mode == ViewForm {
+			if cmd := m.handleFormMouse(msg); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
 
 	case tasksLoadedMsg:
@@ -557,7 +585,11 @@ func (m *Model) updateSizes() {
 		formWidth = 20
 	}
 	m.formTitle.Width = formWidth
-	m.formDesc.Width = formWidth
+	m.formDesc.SetWidth(formWidth)
+	m.formNotes.SetWidth(formWidth)
+	m.formDesign.SetWidth(formWidth)
+	m.formAcceptance.SetWidth(formWidth)
+	m.updateFormTextAreaHeights()
 
 	// Update help list size
 	// Help view: title (2 lines) + content + help bar (1 line)

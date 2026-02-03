@@ -392,11 +392,25 @@ func (m *Model) updateDetailContent() {
 func (m Model) viewForm() string {
 	var b strings.Builder
 
-	if m.editing {
-		b.WriteString(ui.TitleStyle.Render("Edit Task") + "\n\n")
-	} else {
-		b.WriteString(ui.TitleStyle.Render("New Task") + "\n\n")
+	blocks, button, help := m.formViewBlocks()
+	for _, block := range blocks {
+		b.WriteString(block)
 	}
+	b.WriteString(button + "\n\n")
+	b.WriteString("\n")
+	b.WriteString(help)
+
+	return b.String()
+}
+
+func (m Model) formViewBlocks() ([]string, string, string) {
+	var blocks []string
+
+	title := "New Task"
+	if m.editing {
+		title = "Edit Task"
+	}
+	blocks = append(blocks, ui.TitleStyle.Render(title)+"\n\n")
 
 	// Title field
 	titleLabel := ui.FormLabelStyle.Render("Title:")
@@ -405,43 +419,23 @@ func (m Model) viewForm() string {
 		titleStyle = ui.FormInputFocusedStyle
 	}
 	titleInput := titleStyle.Width(m.width - 20).Render(m.formTitle.View())
-	b.WriteString(titleLabel + "\n" + titleInput + "\n\n")
+	blocks = append(blocks, titleLabel+"\n"+titleInput+"\n\n")
 
 	// Description field
 	descLabel := ui.FormLabelStyle.Render("Description:")
-	descStyle := ui.FormInputStyle
-	if m.formFocus == 1 {
-		descStyle = ui.FormInputFocusedStyle
-	}
-	descInput := descStyle.Width(m.width - 20).Render(m.formDesc.View())
-	b.WriteString(descLabel + "\n" + descInput + "\n\n")
+	blocks = append(blocks, descLabel+"\n"+m.formDesc.View()+"\n\n")
 
 	// Notes field
 	notesLabel := ui.FormLabelStyle.Render("Notes:")
-	notesStyle := ui.FormInputStyle
-	if m.formFocus == 2 {
-		notesStyle = ui.FormInputFocusedStyle
-	}
-	notesInput := notesStyle.Width(m.width - 20).Render(m.formNotes.View())
-	b.WriteString(notesLabel + "\n" + notesInput + "\n\n")
+	blocks = append(blocks, notesLabel+"\n"+m.formNotes.View()+"\n\n")
 
 	// Design field
 	designLabel := ui.FormLabelStyle.Render("Design:")
-	designStyle := ui.FormInputStyle
-	if m.formFocus == 3 {
-		designStyle = ui.FormInputFocusedStyle
-	}
-	designInput := designStyle.Width(m.width - 20).Render(m.formDesign.View())
-	b.WriteString(designLabel + "\n" + designInput + "\n\n")
+	blocks = append(blocks, designLabel+"\n"+m.formDesign.View()+"\n\n")
 
 	// Acceptance field
 	acceptLabel := ui.FormLabelStyle.Render("Acceptance Criteria:")
-	acceptStyle := ui.FormInputStyle
-	if m.formFocus == 4 {
-		acceptStyle = ui.FormInputFocusedStyle
-	}
-	acceptInput := acceptStyle.Width(m.width - 20).Render(m.formAcceptance.View())
-	b.WriteString(acceptLabel + "\n" + acceptInput + "\n\n")
+	blocks = append(blocks, acceptLabel+"\n"+m.formAcceptance.View()+"\n\n")
 
 	// Priority selector
 	priLabel := ui.FormLabelStyle.Render("Priority:")
@@ -457,7 +451,7 @@ func (m Model) viewForm() string {
 	if m.formFocus == 5 {
 		focusIndicator = " <"
 	}
-	b.WriteString(priLabel + priValue + focusIndicator + "\n\n")
+	blocks = append(blocks, priLabel+priValue+focusIndicator+"\n\n")
 
 	// Type selector
 	typeLabel := ui.FormLabelStyle.Render("Type:")
@@ -474,13 +468,18 @@ func (m Model) viewForm() string {
 	if m.formFocus == 6 {
 		focusIndicator = " <"
 	}
-	b.WriteString(typeLabel + typeValue + focusIndicator + "\n\n")
+	blocks = append(blocks, typeLabel+typeValue+focusIndicator+"\n\n")
 
-	// Help
-	b.WriteString("\n")
-	b.WriteString(ui.HelpBarStyle.Render("tab/shift+tab: next/prev field  enter: submit  esc: cancel"))
+	// Submit button
+	buttonStyle := ui.FormButtonStyle
+	if m.formFocus == 7 {
+		buttonStyle = ui.FormButtonFocusedStyle
+	}
+	buttonText := "Submit"
+	button := buttonStyle.Render(buttonText)
 
-	return b.String()
+	help := ui.HelpBarStyle.Render("tab/shift+tab: next/prev field  alt+enter: focus submit  enter: newline/activate button  esc: cancel")
+	return blocks, button, help
 }
 
 func max(a, b int) int {
