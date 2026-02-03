@@ -88,6 +88,15 @@ lazybeads --check
 | `d` or `e` | Edit description (opens $EDITOR) |
 | `y` | Copy issue ID to clipboard |
 
+### Form (create/edit)
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+e` | Edit focused field (opens $EDITOR) |
+| `Tab` / `Shift+Tab` | Next / previous field |
+| `Alt+Enter` | Focus submit |
+| `Esc` | Cancel |
+
 ### Filter
 
 | Key | Action |

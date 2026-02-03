@@ -214,6 +214,9 @@ func (m *Model) handleDetailKeys(msg tea.KeyMsg) tea.Cmd {
 
 func (m *Model) handleFormKeys(msg tea.KeyMsg) tea.Cmd {
 	switch {
+	case key.Matches(msg, m.keys.EditFormField):
+		return m.editFocusedFormFieldInEditor()
+
 	case key.Matches(msg, m.keys.Cancel):
 		m.mode = ViewList
 		return nil
@@ -470,7 +473,31 @@ func (m *Model) editDescriptionInEditor(task *models.Task) tea.Cmd {
 	return m.editFieldInEditor(task, editorFieldDescription, task.Description)
 }
 
+func (m *Model) editFocusedFormFieldInEditor() tea.Cmd {
+	switch m.formFocus {
+	case 1:
+		return m.editFormFieldInEditor(editorFieldDescription, m.formDesc.Value())
+	case 2:
+		return m.editFormFieldInEditor(editorFieldNotes, m.formNotes.Value())
+	case 3:
+		return m.editFormFieldInEditor(editorFieldDesign, m.formDesign.Value())
+	case 4:
+		return m.editFormFieldInEditor(editorFieldAcceptance, m.formAcceptance.Value())
+	default:
+		m.err = fmt.Errorf("external editor only works for description, notes, design, or acceptance criteria")
+		return nil
+	}
+}
+
 func (m *Model) editFieldInEditor(task *models.Task, field editorField, content string) tea.Cmd {
+	return m.startExternalEditor(field, content, task.ID, false)
+}
+
+func (m *Model) editFormFieldInEditor(field editorField, content string) tea.Cmd {
+	return m.startExternalEditor(field, content, "", true)
+}
+
+func (m *Model) startExternalEditor(field editorField, content string, targetID string, targetForm bool) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "nano"
@@ -483,8 +510,10 @@ func (m *Model) editFieldInEditor(task *models.Task, field editorField, content 
 		return nil
 	}
 
-	// Write current description to temp file
-	if _, err := tmpfile.WriteString(content); err != nil {
+	editorContent := wrapEditorContent(field, content, targetID, targetForm)
+
+	// Write current content to temp file
+	if _, err := tmpfile.WriteString(editorContent); err != nil {
 		tmpfile.Close()
 		os.Remove(tmpfile.Name())
 		m.err = fmt.Errorf("failed to write to temp file: %w", err)
@@ -493,7 +522,8 @@ func (m *Model) editFieldInEditor(task *models.Task, field editorField, content 
 	tmpfile.Close()
 
 	m.editorField = field
-	m.editorTargetID = task.ID
+	m.editorTargetID = targetID
+	m.editorTargetForm = targetForm
 
 	tmpPath := tmpfile.Name()
 	c := exec.Command(editor, tmpPath)
@@ -507,8 +537,47 @@ func (m *Model) editFieldInEditor(task *models.Task, field editorField, content 
 		if readErr != nil {
 			return editorFinishedMsg{err: readErr}
 		}
-		return editorFinishedMsg{content: string(content)}
+		return editorFinishedMsg{content: stripEditorMetadata(string(content))}
 	})
+}
+
+func wrapEditorContent(field editorField, content, targetID string, targetForm bool) string {
+	var b strings.Builder
+	_ = targetID
+	_ = targetForm
+	fmt.Fprintf(&b, "# Form field: %s\n", editorFieldLabel(field))
+	b.WriteString("# Comments are ignored\n\n")
+	b.WriteString(content)
+	return b.String()
+}
+
+func stripEditorMetadata(content string) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) < 2 {
+		return content
+	}
+
+	if !strings.HasPrefix(lines[0], "# Form field: ") || lines[1] != "# Comments are ignored" {
+		return content
+	}
+
+	result := strings.Join(lines[2:], "\n")
+	return strings.TrimLeft(result, "\n")
+}
+
+func editorFieldLabel(field editorField) string {
+	switch field {
+	case editorFieldDescription:
+		return "Description"
+	case editorFieldNotes:
+		return "Notes"
+	case editorFieldDesign:
+		return "Design"
+	case editorFieldAcceptance:
+		return "Acceptance Criteria"
+	default:
+		return "Field"
+	}
 }
 
 // matchCustomCommand checks if the key matches any custom command for the given context

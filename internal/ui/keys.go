@@ -27,6 +27,7 @@ type KeyMap struct {
 	EditNotes       key.Binding
 	EditDesign      key.Binding
 	EditAcceptance  key.Binding
+	EditFormField   key.Binding
 	CopyID          key.Binding
 
 	// Filtering
@@ -134,6 +135,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("C"),
 			key.WithHelp("C", "edit acceptance criteria"),
 		),
+		EditFormField: key.NewBinding(
+			key.WithKeys("ctrl+e"),
+			key.WithHelp("^e", "edit field in editor"),
+		),
 
 		// Filtering
 		Filter: key.NewBinding(
@@ -212,7 +217,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown},
 		{k.Select, k.Add, k.Delete, k.Refresh},
 		{k.EditTitle, k.EditStatus, k.EditPriority, k.EditType},
-		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.CopyID},
+		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID},
 		{k.Filter, k.Ready, k.Open, k.All},
 		{k.Submit, k.Tab, k.ShiftTab},
 		{k.PrevView, k.NextView},

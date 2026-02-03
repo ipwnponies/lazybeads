@@ -115,6 +115,7 @@ type Model struct {
 	editingID        string
 	editorField      editorField
 	editorTargetID   string
+	editorTargetForm bool
 
 	// Confirmation
 	confirmMsg    string
@@ -382,15 +383,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.loadTasks())
 
 	case editorFinishedMsg:
+		targetID := m.editorTargetID
+		field := m.editorField
+		targetForm := m.editorTargetForm
+		m.editorTargetID = ""
+		m.editorField = ""
+		m.editorTargetForm = false
+
 		if msg.err != nil {
 			m.err = msg.err
-			m.editorTargetID = ""
-			m.editorField = ""
-		} else if m.editorTargetID != "" {
-			targetID := m.editorTargetID
-			field := m.editorField
-			m.editorTargetID = ""
-			m.editorField = ""
+			if targetForm {
+				m.mode = ViewForm
+			} else {
+				m.mode = ViewList
+			}
+			break
+		}
+
+		if targetForm {
+			m.applyEditorContentToForm(field, msg.content)
+			m.mode = ViewForm
+			break
+		}
+
+		if targetID != "" {
 			return m, func() tea.Msg {
 				opts := beads.UpdateOptions{}
 				switch field {
@@ -407,6 +423,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return taskUpdatedMsg{err: err}
 			}
 		}
+
 		m.mode = ViewList
 
 	case tickMsg:

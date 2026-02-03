@@ -478,7 +478,7 @@ func (m Model) formViewBlocks() ([]string, string, string) {
 	buttonText := "Submit"
 	button := buttonStyle.Render(buttonText)
 
-	help := ui.HelpBarStyle.Render("tab/shift+tab: next/prev field  alt+enter: focus submit  enter: newline/activate button  esc: cancel")
+	help := ui.HelpBarStyle.Render("tab/shift+tab: next/prev field  ^e: edit in $EDITOR  alt+enter: focus submit  enter: newline/activate button  esc: cancel")
 	return blocks, button, help
 }
 
