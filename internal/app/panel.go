@@ -368,7 +368,7 @@ func (p PanelModel) viewCollapsed() string {
 
 func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) string {
 	priority := task.PriorityString()
-	issueID := task.ID
+	issueID := shortenIssueID(task.ID)
 	title := task.Title
 	treePrefix := task.TreePrefix
 
@@ -395,8 +395,12 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 			parts = append(parts, fmt.Sprintf("(%s)", formatRelativeTime(*task.DeferUntil, now)))
 		}
 		if blocked && task.TreePrefix == "" {
-			blockedIDs := strings.Join(task.BlockedBy, ", ")
-			parts = append(parts, fmt.Sprintf("(blocked by %s)", blockedIDs))
+			blockedIDs := make([]string, 0, len(task.BlockedBy))
+			for _, blockedID := range task.BlockedBy {
+				blockedIDs = append(blockedIDs, shortenIssueID(blockedID))
+			}
+			blockedIDsText := strings.Join(blockedIDs, ", ")
+			parts = append(parts, fmt.Sprintf("(blocked by %s)", blockedIDsText))
 		}
 		suffix = " " + strings.Join(parts, " ")
 	}
@@ -487,6 +491,14 @@ func truncateTitle(title string, maxWidth int) string {
 		title = title[:len(title)-1]
 	}
 	return title + "..."
+}
+
+func shortenIssueID(id string) string {
+	lastDash := strings.LastIndex(id, "-")
+	if lastDash <= 0 || lastDash >= len(id)-1 {
+		return id
+	}
+	return id[lastDash+1:]
 }
 
 func formatRelativeTime(target time.Time, now time.Time) string {
