@@ -370,6 +370,7 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 	priority := task.PriorityString()
 	issueID := task.ID
 	title := task.Title
+	treePrefix := task.TreePrefix
 
 	var suffix string
 	now := time.Now()
@@ -393,15 +394,14 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 		if deferred {
 			parts = append(parts, fmt.Sprintf("(%s)", formatRelativeTime(*task.DeferUntil, now)))
 		}
-		if blocked {
+		if blocked && task.TreePrefix == "" {
 			blockedIDs := strings.Join(task.BlockedBy, ", ")
-			parts = append(parts, fmt.Sprintf("(%s)", blockedIDs))
+			parts = append(parts, fmt.Sprintf("(blocked by %s)", blockedIDs))
 		}
 		suffix = " " + strings.Join(parts, " ")
 	}
 	stateStyles := defaultStateStyles()
 	deferredStyle := deferredStyleConfig(stateStyles["deferred"])
-	blockedStyle := deferredStyleConfig(stateStyles["blocked"])
 
 	// Calculate available width for title (account for priority, issue ID, spaces, and suffix)
 	// Format: " P# issue-id title (:timer: in 5m)"
@@ -412,9 +412,15 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 		maxTitleWidth = 0
 	}
 
-	title = truncateTitle(title, maxTitleWidth)
+	treePrefixWidth := lipgloss.Width(treePrefix)
+	titleWidthBudget := maxTitleWidth - treePrefixWidth
+	if titleWidthBudget < 0 {
+		titleWidthBudget = 0
+	}
+	title = truncateTitle(title, titleWidthBudget)
+	displayTitle := treePrefix + title
 
-	remainingWidth := width - prefixWidth - lipgloss.Width(title)
+	remainingWidth := width - prefixWidth - lipgloss.Width(displayTitle)
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
@@ -429,14 +435,11 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 
 	if isSelected && focused {
 		// Show highlight only when panel is focused
-		line := fmt.Sprintf(" %s %s %s %s%s", markerText, priority, issueID, title, suffix)
+		line := fmt.Sprintf(" %s %s %s %s%s", markerText, priority, issueID, displayTitle, suffix)
 		bgColor := lipgloss.Color("#2a4a6d")
 		fgColor := lipgloss.Color("15")
 		faint := false
-		if blocked {
-			bgColor = blockedStyle.FocusedBackground
-			fgColor = blockedStyle.FocusedForeground
-		} else if deferred {
+		if deferred {
 			bgColor = deferredStyle.FocusedBackground
 			fgColor = deferredStyle.FocusedForeground
 			faint = true
@@ -455,12 +458,7 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 	titleStyle := lipgloss.NewStyle().Foreground(ui.ColorWhite)
 	suffixStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
 
-	if blocked {
-		markerStyle = markerStyle.Foreground(blockedStyle.MarkerColor).Bold(true)
-		idStyle = idStyle.Foreground(blockedStyle.MarkerColor)
-		titleStyle = titleStyle.Foreground(blockedStyle.MarkerColor).Bold(true)
-		suffixStyle = suffixStyle.Foreground(blockedStyle.MarkerColor)
-	} else if deferred {
+	if deferred {
 		priorityStyle = priorityStyle.Faint(true)
 		idStyle = idStyle.Faint(true)
 		titleStyle = titleStyle.Faint(true)
@@ -471,7 +469,7 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 		markerStyle.Render(markerText),
 		priorityStyle.Render(priority),
 		idStyle.Render(issueID),
-		titleStyle.Render(title),
+		titleStyle.Render(displayTitle),
 		suffixStyle.Render(suffix))
 
 	style := lipgloss.NewStyle().Width(width).MaxWidth(width)

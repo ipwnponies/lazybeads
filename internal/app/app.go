@@ -351,6 +351,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.tasks != nil {
 			m.tasks = msg.tasks
+			applyBlockingDepth(m.tasks)
 			m.distributeTasks()
 		}
 
@@ -660,6 +661,9 @@ func (m *Model) distributeTasks() {
 		// Most recently closed first (descending order)
 		return closed[i].ClosedAt.After(*closed[j].ClosedAt)
 	})
+
+	inProgress = orderTasksByBlockingTree(inProgress)
+	open = orderTasksByBlockingTree(open)
 
 	m.inProgressPanel.SetTasks(inProgress)
 	m.openPanel.SetTasks(open)

@@ -26,6 +26,8 @@ type Task struct {
 	DueDate            *time.Time `json:"due_date,omitempty"`
 	DeferUntil         *time.Time `json:"defer_until,omitempty"`
 	BlockedBy          []string   `json:"blocked_by,omitempty"`
+	BlockingDepth      int        `json:"blocking_depth,omitempty"`
+	TreePrefix         string     `json:"-"`
 	Blocks             []string   `json:"blocks,omitempty"`
 	DependencyCount    int        `json:"dependency_count,omitempty"`
 	DependentCount     int        `json:"dependent_count,omitempty"`
