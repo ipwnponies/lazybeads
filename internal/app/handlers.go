@@ -102,6 +102,14 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, m.keys.NextView):
 		m.cyclePanelFocus(1)
 
+	case key.Matches(msg, m.keys.PanelShrink):
+		m.panelAdjust -= panelWidthStep
+		m.updateSizes()
+
+	case key.Matches(msg, m.keys.PanelExpand):
+		m.panelAdjust += panelWidthStep
+		m.updateSizes()
+
 	case key.Matches(msg, m.keys.Refresh):
 		return m.loadTasks()
 

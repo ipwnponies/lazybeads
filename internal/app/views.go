@@ -51,7 +51,7 @@ func (m Model) viewMain() string {
 	panelViews = append(panelViews, m.closedPanel.View())
 	leftColumn := lipgloss.JoinVertical(lipgloss.Left, panelViews...)
 
-	if m.width >= 80 {
+	if m.width >= wideModeMinWidth {
 		// Wide mode: panels on left, detail on right
 		detailStyle := ui.PanelStyle
 		if m.mode == ViewDetail {
@@ -67,7 +67,7 @@ func (m Model) viewMain() string {
 		}
 
 		detailPanel := detailStyle.
-			Width(m.width/2 - 2).
+			Width(m.detailWidth).
 			Height(contentHeight - 2). // -2 for lipgloss border (top + bottom)
 			Render(detailContent)
 

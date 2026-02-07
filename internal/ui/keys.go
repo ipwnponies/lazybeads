@@ -38,14 +38,16 @@ type KeyMap struct {
 	All        key.Binding
 
 	// UI
-	Help     key.Binding
-	Quit     key.Binding
-	Cancel   key.Binding
-	Submit   key.Binding
-	Tab      key.Binding
-	ShiftTab key.Binding
-	PrevView key.Binding
-	NextView key.Binding
+	Help        key.Binding
+	Quit        key.Binding
+	Cancel      key.Binding
+	Submit      key.Binding
+	Tab         key.Binding
+	ShiftTab    key.Binding
+	PrevView    key.Binding
+	NextView    key.Binding
+	PanelShrink key.Binding
+	PanelExpand key.Binding
 
 	// Custom commands (loaded from config)
 	CustomCommands []key.Binding
@@ -195,6 +197,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("l", "right", "tab"),
 			key.WithHelp("l/right/tab", "next view"),
 		),
+		PanelShrink: key.NewBinding(
+			key.WithKeys("-"),
+			key.WithHelp("-", "shrink panel"),
+		),
+		PanelExpand: key.NewBinding(
+			key.WithKeys("="),
+			key.WithHelp("=", "expand panel"),
+		),
 	}
 }
 
@@ -220,7 +230,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID},
 		{k.Filter, k.Ready, k.Open, k.All},
 		{k.Submit, k.Tab, k.ShiftTab},
-		{k.PrevView, k.NextView},
+		{k.PrevView, k.NextView, k.PanelShrink, k.PanelExpand},
 		{k.Help, k.Quit, k.Cancel},
 	}
 	// Add custom commands as a separate group if present

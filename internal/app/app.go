@@ -35,6 +35,14 @@ const (
 	ViewFilter
 )
 
+const (
+	wideModeMinWidth   = 80
+	panelDefaultMax    = 80
+	panelMinWidthChars = 10
+	detailMinWidth     = 10
+	panelWidthStep     = 5
+)
+
 const formFieldCount = 8
 
 type editorField string
@@ -89,6 +97,9 @@ type Model struct {
 	width        int
 	height       int
 	err          error
+	panelWidth   int
+	detailWidth  int
+	panelAdjust  int
 
 	// Panels (3 vertically stacked)
 	inProgressPanel PanelModel
@@ -527,13 +538,16 @@ func (m *Model) updateSizes() {
 
 	// Wide mode: panels on left, detail on right
 	var panelWidth int
-	if m.width >= 80 {
-		panelWidth = m.width/2 - 1
-		m.detail.Width = m.width/2 - 4
+	if m.width >= wideModeMinWidth {
+		panelWidth, m.detailWidth = m.wideLayoutWidths()
+		m.panelWidth = panelWidth
+		m.detail.Width = maxInt(m.detailWidth-4, 1)
 		m.detail.Height = contentHeight - 2
 	} else {
 		// Narrow mode: full width panels stacked
 		panelWidth = m.width - 2
+		m.panelWidth = panelWidth
+		m.detailWidth = 0
 		m.detail.Width = m.width - 4
 		m.detail.Height = contentHeight - 2
 	}
@@ -622,6 +636,44 @@ func (m *Model) updateSizes() {
 		helpInputWidth = 10
 	}
 	m.helpFilterInput.Width = helpInputWidth
+}
+
+func (m *Model) wideLayoutWidths() (panelWidth int, detailWidth int) {
+	defaultPanel := m.width / 2
+	if defaultPanel > panelDefaultMax {
+		defaultPanel = panelDefaultMax
+	}
+	if defaultPanel < panelMinWidthChars {
+		defaultPanel = panelMinWidthChars
+	}
+
+	panelWidth = defaultPanel + m.panelAdjust
+	if panelWidth < panelMinWidthChars {
+		panelWidth = panelMinWidthChars
+	}
+	maxPanel := m.width - detailMinWidth
+	if maxPanel < panelMinWidthChars {
+		maxPanel = panelMinWidthChars
+	}
+	if panelWidth > maxPanel {
+		panelWidth = maxPanel
+	}
+
+	detailWidth = m.width - panelWidth
+	if detailWidth < detailMinWidth {
+		detailWidth = detailMinWidth
+		panelWidth = m.width - detailWidth
+	}
+
+	m.panelAdjust = panelWidth - defaultPanel
+	return panelWidth, detailWidth
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (m *Model) distributeTasks() {

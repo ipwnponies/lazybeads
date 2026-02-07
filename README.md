@@ -67,6 +67,7 @@ lazybeads --check
 | `g` / `G` | Jump to top / bottom |
 | `Ctrl+u` / `Ctrl+d` | Page up / down |
 | `h` / `l` / `←` / `→` / `Tab` / `Shift+Tab` | Previous / next panel |
+| `-` / `=` | Shrink / expand panel width |
 
 ### Actions
 
