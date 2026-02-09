@@ -307,6 +307,16 @@ func (m *Model) updateDetailContent() {
 		b.WriteString("\n")
 	}
 
+	if t.EpicParentID != "" {
+		epicLabel := t.EpicParentID
+		if t.EpicParentTitle != "" {
+			epicLabel = fmt.Sprintf("%s %s", t.EpicParentID, t.EpicParentTitle)
+		}
+		b.WriteString(ui.DetailLabelStyle.Render("Epic:"))
+		b.WriteString(ui.DetailValueStyle.Render(epicLabel))
+		b.WriteString("\n")
+	}
+
 	if t.DueDate != nil {
 		b.WriteString(ui.DetailLabelStyle.Render("Due:"))
 		b.WriteString(ui.DetailValueStyle.Render(t.DueDate.Format("2006-01-02")))

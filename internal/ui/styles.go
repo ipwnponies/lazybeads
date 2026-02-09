@@ -76,6 +76,22 @@ var (
 	TaskTitleStyle = lipgloss.NewStyle().
 			Foreground(ColorWhite)
 
+	EpicMarkerStyle = lipgloss.NewStyle().
+			Foreground(ColorMagenta).
+			Bold(true)
+
+	EpicTitleStyle = lipgloss.NewStyle().
+			Foreground(ColorMagenta).
+			Bold(true)
+
+	EpicMarkerFocusedStyle = lipgloss.NewStyle().
+				Foreground(ColorPrimary).
+				Bold(true)
+
+	EpicTitleFocusedStyle = lipgloss.NewStyle().
+				Foreground(ColorPrimary).
+				Bold(true)
+
 	// Status bar
 	StatusBarStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted).

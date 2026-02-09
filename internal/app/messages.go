@@ -77,6 +77,7 @@ func (m Model) loadTasks() tea.Cmd {
 
 		tasks, err = enrichDeferredTasks(tasks, m.client)
 		tasks, err = enrichBlockedTasks(tasks, m.client, err)
+		tasks, err = enrichEpicTasks(tasks, m.client, err)
 		return tasksLoadedMsg{tasks: tasks, err: err}
 	}
 }
@@ -139,4 +140,57 @@ func enrichBlockedTasks(tasks []models.Task, client *beads.Client, prevErr error
 	}
 
 	return tasks, prevErr
+}
+
+func enrichEpicTasks(tasks []models.Task, client *beads.Client, prevErr error) ([]models.Task, error) {
+	epicByID := make(map[string]models.Task)
+	for _, task := range tasks {
+		if task.Type == "epic" {
+			epicByID[task.ID] = task
+		}
+	}
+	if len(epicByID) == 0 {
+		return tasks, prevErr
+	}
+
+	childToEpic := make(map[string]string)
+	var firstErr error
+	for epicID := range epicByID {
+		children, err := client.ListDependencies(epicID, "up", "parent-child")
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("failed to load epic children for %s: %w", epicID, err)
+			}
+			continue
+		}
+		for _, child := range children {
+			if child.ID == "" {
+				continue
+			}
+			if _, exists := childToEpic[child.ID]; !exists {
+				childToEpic[child.ID] = epicID
+			}
+		}
+	}
+	if len(childToEpic) == 0 {
+		return tasks, errors.Join(prevErr, firstErr)
+	}
+
+	indexByID := make(map[string]int, len(tasks))
+	for i, task := range tasks {
+		indexByID[task.ID] = i
+	}
+
+	for childID, epicID := range childToEpic {
+		idx, ok := indexByID[childID]
+		if !ok {
+			continue
+		}
+		tasks[idx].EpicParentID = epicID
+		if epic, ok := epicByID[epicID]; ok {
+			tasks[idx].EpicParentTitle = epic.Title
+		}
+	}
+
+	return tasks, errors.Join(prevErr, firstErr)
 }

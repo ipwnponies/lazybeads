@@ -367,10 +367,15 @@ func (p PanelModel) viewCollapsed() string {
 }
 
 func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) string {
+	if task.IsEpicHeader {
+		return formatEpicLine(task, width, isSelected, focused)
+	}
+
 	priority := task.PriorityString()
 	issueID := shortenIssueID(task.ID)
 	title := task.Title
 	treePrefix := task.TreePrefix
+	epicPrefix := task.EpicPrefix
 
 	var suffix string
 	now := time.Now()
@@ -416,13 +421,14 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 		maxTitleWidth = 0
 	}
 
-	treePrefixWidth := lipgloss.Width(treePrefix)
+	displayPrefix := epicPrefix + treePrefix
+	treePrefixWidth := lipgloss.Width(displayPrefix)
 	titleWidthBudget := maxTitleWidth - treePrefixWidth
 	if titleWidthBudget < 0 {
 		titleWidthBudget = 0
 	}
 	title = truncateTitle(title, titleWidthBudget)
-	displayTitle := treePrefix + title
+	displayTitle := displayPrefix + title
 
 	remainingWidth := width - prefixWidth - lipgloss.Width(displayTitle)
 	if remainingWidth < 0 {
@@ -478,6 +484,58 @@ func formatTaskLine(task models.Task, width int, isSelected bool, focused bool) 
 
 	style := lipgloss.NewStyle().Width(width).MaxWidth(width)
 	return style.Render(line)
+}
+
+func formatEpicLine(task models.Task, width int, isSelected bool, focused bool) string {
+	priority := task.PriorityString()
+	issueID := shortenIssueID(task.ID)
+	title := task.Title
+
+	markerText := "⬢"
+	markerWidth := 2
+	markerPad := markerWidth - lipgloss.Width(markerText)
+	if markerPad < 0 {
+		markerPad = 0
+	}
+	markerText = markerText + strings.Repeat(" ", markerPad)
+
+	// Calculate available width for title (account for priority, issue ID, spaces)
+	prefixWidth := lipgloss.Width(fmt.Sprintf(" %s %s %s ", markerText, priority, issueID))
+	maxTitleWidth := width - prefixWidth
+	if maxTitleWidth < 0 {
+		maxTitleWidth = 0
+	}
+
+	title = truncateTitle(title, maxTitleWidth)
+	line := fmt.Sprintf(" %s %s %s %s", markerText, priority, issueID, title)
+
+	if isSelected && focused {
+		bgColor := lipgloss.Color("2")
+		fgColor := lipgloss.Color("0")
+		style := lipgloss.NewStyle().
+			Foreground(fgColor).
+			Background(bgColor).
+			Bold(true).
+			Width(width)
+		return style.Render(line)
+	}
+
+	priorityStyle := ui.PriorityStyle(task.Priority)
+	idStyle := lipgloss.NewStyle().Foreground(ui.ColorMuted)
+	titleStyle := ui.EpicTitleStyle
+	markerStyle := ui.EpicMarkerStyle
+	if focused {
+		titleStyle = ui.EpicTitleFocusedStyle
+		markerStyle = ui.EpicMarkerFocusedStyle
+	}
+
+	style := lipgloss.NewStyle().Width(width).MaxWidth(width)
+	return style.Render(fmt.Sprintf(" %s %s %s %s",
+		markerStyle.Render(markerText),
+		priorityStyle.Render(priority),
+		idStyle.Render(issueID),
+		titleStyle.Render(title),
+	))
 }
 
 func truncateTitle(title string, maxWidth int) string {

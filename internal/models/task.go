@@ -28,9 +28,14 @@ type Task struct {
 	BlockedBy          []string   `json:"blocked_by,omitempty"`
 	BlockingDepth      int        `json:"blocking_depth,omitempty"`
 	TreePrefix         string     `json:"-"`
+	EpicParentID       string     `json:"-"`
+	EpicParentTitle    string     `json:"-"`
+	EpicPrefix         string     `json:"-"`
+	IsEpicHeader       bool       `json:"-"`
 	Blocks             []string   `json:"blocks,omitempty"`
 	DependencyCount    int        `json:"dependency_count,omitempty"`
 	DependentCount     int        `json:"dependent_count,omitempty"`
+	DependencyType     string     `json:"dependency_type,omitempty"`
 }
 
 // PriorityString returns a short priority label

@@ -716,6 +716,9 @@ func (m *Model) distributeTasks() {
 
 	inProgress = orderTasksByBlockingTree(inProgress)
 	open = orderTasksByBlockingTree(open)
+	inProgress = groupTasksByEpic(inProgress, m.tasks)
+	open = groupTasksByEpic(open, m.tasks)
+	closed = groupTasksByEpic(closed, m.tasks)
 
 	m.inProgressPanel.SetTasks(inProgress)
 	m.openPanel.SetTasks(open)

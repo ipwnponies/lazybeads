@@ -88,6 +88,29 @@ func (c *Client) Blocked() ([]models.Task, error) {
 	return tasks, nil
 }
 
+// ListDependencies returns dependencies or dependents for an issue, optionally filtered by type.
+func (c *Client) ListDependencies(id string, direction string, depType string) ([]models.Task, error) {
+	args := []string{"dep", "list", id, "--json"}
+	if direction != "" {
+		args = append(args, "--direction", direction)
+	}
+	if depType != "" {
+		args = append(args, "-t", depType)
+	}
+
+	out, err := exec.Command("bd", args...).Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd dep list failed: %w", err)
+	}
+
+	var tasks []models.Task
+	if err := json.Unmarshal(out, &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse bd dep list output: %w", err)
+	}
+
+	return tasks, nil
+}
+
 // Show returns details for a specific task
 func (c *Client) Show(id string) (*models.Task, error) {
 	out, err := exec.Command("bd", "show", id, "--json").Output()
