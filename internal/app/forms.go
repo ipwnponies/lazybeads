@@ -176,10 +176,51 @@ func (m *Model) updateFormTextAreaHeights() {
 		acceptWidth = 1
 	}
 
-	m.formDesc.SetHeight(calcTextareaHeight(m.formDesc.Value(), descWidth))
-	m.formNotes.SetHeight(calcTextareaHeight(m.formNotes.Value(), notesWidth))
-	m.formDesign.SetHeight(calcTextareaHeight(m.formDesign.Value(), designWidth))
-	m.formAcceptance.SetHeight(calcTextareaHeight(m.formAcceptance.Value(), acceptWidth))
+	descHeight := calcTextareaHeight(m.formDesc.Value(), descWidth)
+	notesHeight := calcTextareaHeight(m.formNotes.Value(), notesWidth)
+	designHeight := calcTextareaHeight(m.formDesign.Value(), designWidth)
+	acceptHeight := calcTextareaHeight(m.formAcceptance.Value(), acceptWidth)
+
+	descChanged := m.formDesc.Height() != descHeight
+	notesChanged := m.formNotes.Height() != notesHeight
+	designChanged := m.formDesign.Height() != designHeight
+	acceptChanged := m.formAcceptance.Height() != acceptHeight
+
+	if descChanged {
+		m.formDesc.SetHeight(descHeight)
+	}
+	if notesChanged {
+		m.formNotes.SetHeight(notesHeight)
+	}
+	if designChanged {
+		m.formDesign.SetHeight(designHeight)
+	}
+	if acceptChanged {
+		m.formAcceptance.SetHeight(acceptHeight)
+	}
+
+	switch m.formFocus {
+	case 1:
+		if descChanged {
+			syncTextareaViewport(&m.formDesc)
+			resetTextareaViewportToTopIfFullyVisible(&m.formDesc)
+		}
+	case 2:
+		if notesChanged {
+			syncTextareaViewport(&m.formNotes)
+			resetTextareaViewportToTopIfFullyVisible(&m.formNotes)
+		}
+	case 3:
+		if designChanged {
+			syncTextareaViewport(&m.formDesign)
+			resetTextareaViewportToTopIfFullyVisible(&m.formDesign)
+		}
+	case 4:
+		if acceptChanged {
+			syncTextareaViewport(&m.formAcceptance)
+			resetTextareaViewportToTopIfFullyVisible(&m.formAcceptance)
+		}
+	}
 	m.updateFormSubmitBounds()
 }
 
@@ -220,6 +261,39 @@ func bumpTextareaHeightForNewline(ta *textarea.Model) {
 	target := calcTextareaHeight(ta.Value(), width) + 1
 	if ta.Height() < target {
 		ta.SetHeight(target)
+	}
+}
+
+func syncTextareaViewport(ta *textarea.Model) {
+	if !ta.Focused() {
+		return
+	}
+	updated, _ := ta.Update(nil)
+	*ta = updated
+}
+
+func resetTextareaViewportToTopIfFullyVisible(ta *textarea.Model) {
+	if !ta.Focused() {
+		return
+	}
+	width := ta.Width()
+	if width < 1 {
+		width = 1
+	}
+	contentHeight := calcTextareaHeight(ta.Value(), width)
+	if contentHeight > ta.Height() {
+		return
+	}
+	if ta.Height() < 1 {
+		return
+	}
+	msg := tea.MouseMsg{
+		Action: tea.MouseActionPress,
+		Button: tea.MouseButtonWheelUp,
+	}
+	for i := 0; i < ta.Height(); i++ {
+		updated, _ := ta.Update(msg)
+		*ta = updated
 	}
 }
 
