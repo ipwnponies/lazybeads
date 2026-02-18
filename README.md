@@ -87,6 +87,7 @@ lazybeads --check
 | `p` | Edit priority |
 | `T` | Edit type |
 | `d` or `e` | Edit description (opens $EDITOR) |
+| `m` | View comments timeline |
 | `y` | Copy issue ID to clipboard |
 
 ### Form (create/edit)

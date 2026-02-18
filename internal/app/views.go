@@ -2,11 +2,13 @@ package app
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
+	"lazybeads/internal/models"
 	"lazybeads/internal/ui"
 )
 
@@ -21,6 +23,8 @@ func (m Model) View() string {
 		return m.viewHelp()
 	case ViewConfirm:
 		return m.viewConfirm()
+	case ViewComments:
+		return m.viewComments()
 	case ViewForm:
 		return m.viewForm()
 	case ViewDetail:
@@ -107,6 +111,29 @@ func (m Model) viewDetailOverlay() string {
 	b.WriteString(content)
 	b.WriteString("\n")
 	b.WriteString(ui.HelpBarStyle.Render("enter/esc: back  ?: help"))
+
+	return b.String()
+}
+
+func (m Model) viewComments() string {
+	var b strings.Builder
+
+	title := ui.TitleStyle.Render("Comments Timeline")
+	b.WriteString(title)
+	if m.selected != nil {
+		b.WriteString(" ")
+		b.WriteString(ui.HelpDescStyle.Render(m.selected.ID))
+	}
+	b.WriteString("\n\n")
+
+	m.updateCommentsContent()
+	content := ui.OverlayStyle.
+		Width(m.width - 4).
+		Height(m.height - 6).
+		Render(m.commentsView.View())
+	b.WriteString(content)
+	b.WriteString("\n")
+	b.WriteString(ui.HelpBarStyle.Render("j/k: scroll  enter/esc/q: back  ?: help"))
 
 	return b.String()
 }
@@ -250,6 +277,7 @@ func (m Model) renderStatusBar() string {
 			{"h/l, ←/→, tab/shift+tab", "panel"},
 			{"/", "filter"},
 			{"enter", "detail"},
+			{"m", "comments"},
 			{"e/s/p/t/d/N/D/C", "edit"},
 			{"y", "copy"},
 			{"x", "delete"},
@@ -264,6 +292,73 @@ func (m Model) renderStatusBar() string {
 	}
 
 	return strings.Join(parts, "  ")
+}
+
+func (m *Model) updateCommentsContent() {
+	if m.selected == nil {
+		m.commentsView.SetContent("")
+		return
+	}
+	issueID := m.selected.ID
+	width := m.commentsView.Width - 2
+	if width < 20 {
+		width = 20
+	}
+
+	content := renderCommentsTimeline(
+		m.commentsByIssue[issueID],
+		m.commentsLoading[issueID],
+		m.commentsError[issueID],
+		width,
+	)
+	m.commentsView.SetContent(content)
+}
+
+func renderCommentsTimeline(comments []models.Comment, loading bool, errText string, width int) string {
+	if loading {
+		return "Loading comments..."
+	}
+	if errText != "" {
+		return "Failed to load comments: " + errText
+	}
+	if len(comments) == 0 {
+		return "No comments."
+	}
+
+	sorted := append([]models.Comment(nil), comments...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].CreatedAt.After(sorted[j].CreatedAt)
+	})
+
+	var b strings.Builder
+	for i, c := range sorted {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+
+		author := c.Author
+		if author == "" {
+			author = "Unknown"
+		}
+		ts := ""
+		if !c.CreatedAt.IsZero() {
+			ts = c.CreatedAt.Format("2006-01-02 15:04")
+		}
+		header := author
+		if ts != "" {
+			header = fmt.Sprintf("%s  %s", author, ts)
+		}
+		b.WriteString(header)
+		b.WriteString("\n")
+
+		text := strings.TrimSpace(c.Text)
+		if text == "" {
+			text = "(empty comment)"
+		}
+		b.WriteString(lipgloss.NewStyle().Width(width).Render(text))
+	}
+
+	return b.String()
 }
 
 func (m *Model) updateDetailContent() {

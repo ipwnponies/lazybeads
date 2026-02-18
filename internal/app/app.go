@@ -25,6 +25,7 @@ type ViewMode int
 const (
 	ViewList ViewMode = iota
 	ViewDetail
+	ViewComments
 	ViewForm
 	ViewHelp
 	ViewConfirm
@@ -107,10 +108,11 @@ type Model struct {
 	closedPanel     PanelModel
 
 	// Components
-	detail     viewport.Model
-	helpList   list.Model
-	filterText textinput.Model
-	helpItems  []helpItem
+	detail       viewport.Model
+	commentsView viewport.Model
+	helpList     list.Model
+	filterText   textinput.Model
+	helpItems    []helpItem
 
 	// Form state
 	formTitle        textinput.Model
@@ -147,6 +149,13 @@ type Model struct {
 	// Status message (flash notification)
 	statusMsg string
 
+	// Comments timeline state
+	commentsByIssue    map[string][]models.Comment
+	commentsError      map[string]string
+	commentsLoaded     map[string]bool
+	commentsLoading    map[string]bool
+	commentsReturnMode ViewMode
+
 	// Custom commands from config
 	customCommands []config.CustomCommand
 }
@@ -171,8 +180,9 @@ func New() Model {
 	closedPanel := NewPanel("Closed")
 	closedPanel.SetCollapsed(true) // Start collapsed since not focused
 
-	// Initialize detail viewport
+	// Initialize detail and comments viewports
 	vp := viewport.New(0, 0)
+	commentsVP := viewport.New(0, 0)
 
 	// Initialize help viewport
 	// Initialize filter input (legacy - can be removed)
@@ -254,6 +264,7 @@ func New() Model {
 		openPanel:       openPanel,
 		closedPanel:     closedPanel,
 		detail:          vp,
+		commentsView:    commentsVP,
 		helpList:        helpList,
 		filterText:      filter,
 		helpItems:       helpItems,
@@ -266,6 +277,10 @@ func New() Model {
 		formAcceptance:  formAcceptance,
 		formPriority:    2,
 		formType:        "feature",
+		commentsByIssue: make(map[string][]models.Comment),
+		commentsError:   make(map[string]string),
+		commentsLoaded:  make(map[string]bool),
+		commentsLoading: make(map[string]bool),
 		customCommands:  customCmds,
 	}
 }
@@ -323,6 +338,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.mode == ViewHelp && !m.helpFilterActive {
 				m.clearHelpFilter()
+			}
+			if m.mode == ViewComments {
+				m.mode = m.commentsReturnMode
+				return m, nil
 			}
 			// Escape goes back to list, never quits
 			if m.mode != ViewList {
@@ -454,6 +473,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case clearStatusMsg:
 		m.statusMsg = ""
+
+	case commentsLoadedMsg:
+		m.commentsLoading[msg.issueID] = false
+		if msg.err != nil {
+			m.commentsLoaded[msg.issueID] = false
+			m.commentsError[msg.issueID] = msg.err.Error()
+		} else {
+			m.commentsLoaded[msg.issueID] = true
+			m.commentsByIssue[msg.issueID] = msg.comments
+			delete(m.commentsError, msg.issueID)
+		}
+		if m.mode == ViewComments && m.selected != nil && m.selected.ID == msg.issueID {
+			m.commentsView.GotoTop()
+			m.updateCommentsContent()
+		}
 	}
 
 	// Update child components
@@ -485,6 +519,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewDetail:
 		var cmd tea.Cmd
 		m.detail, cmd = m.detail.Update(msg)
+		cmds = append(cmds, cmd)
+	case ViewComments:
+		var cmd tea.Cmd
+		m.commentsView, cmd = m.commentsView.Update(msg)
 		cmds = append(cmds, cmd)
 	case ViewForm:
 		cmds = append(cmds, m.updateForm(msg))
@@ -536,6 +574,23 @@ func (m *Model) updateSizes() {
 		joinedHeight = numPanels // Minimum 1 line per panel
 	}
 
+	commentsOverlayWidth := m.width - 4
+	if commentsOverlayWidth < 1 {
+		commentsOverlayWidth = 1
+	}
+	commentsOverlayHeight := m.height - 6
+	if commentsOverlayHeight < 1 {
+		commentsOverlayHeight = 1
+	}
+	commentsInnerWidth := commentsOverlayWidth - ui.OverlayStyle.GetHorizontalFrameSize()
+	if commentsInnerWidth < 1 {
+		commentsInnerWidth = 1
+	}
+	commentsInnerHeight := commentsOverlayHeight - ui.OverlayStyle.GetVerticalFrameSize()
+	if commentsInnerHeight < 1 {
+		commentsInnerHeight = 1
+	}
+
 	// Wide mode: panels on left, detail on right
 	var panelWidth int
 	if m.width >= wideModeMinWidth {
@@ -551,6 +606,8 @@ func (m *Model) updateSizes() {
 		m.detail.Width = m.width - 4
 		m.detail.Height = contentHeight - 2
 	}
+	m.commentsView.Width = commentsInnerWidth
+	m.commentsView.Height = commentsInnerHeight
 
 	// Check if Closed panel is collapsed (only when not focused)
 	closedCollapsed := m.closedPanel.IsCollapsed()

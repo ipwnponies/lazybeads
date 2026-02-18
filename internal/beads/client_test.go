@@ -2,6 +2,7 @@ package beads
 
 import (
 	"os"
+	"os/exec"
 	"testing"
 )
 
@@ -212,4 +213,73 @@ func TestClient_Close(t *testing.T) {
 	}
 
 	t.Log("Close test passed")
+}
+
+func TestClient_Comments_EmptyList(t *testing.T) {
+	skipIfNoBeads(t)
+	client := NewClient()
+
+	task, err := client.Create(CreateOptions{
+		Title:    "Comments empty test task",
+		Type:     "task",
+		Priority: 3,
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	defer client.Delete(task.ID)
+
+	comments, err := client.Comments(task.ID)
+	if err != nil {
+		t.Fatalf("Comments failed: %v", err)
+	}
+	if len(comments) != 0 {
+		t.Fatalf("Expected zero comments, got %d", len(comments))
+	}
+}
+
+func TestClient_Comments_WithComment(t *testing.T) {
+	skipIfNoBeads(t)
+	client := NewClient()
+
+	task, err := client.Create(CreateOptions{
+		Title:    "Comments populated test task",
+		Type:     "task",
+		Priority: 3,
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	defer client.Delete(task.ID)
+
+	commentText := "This is a timeline comment from client tests."
+	cmd := exec.Command("bd", "comments", "add", task.ID, commentText)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Adding comment failed: %v", err)
+	}
+
+	comments, err := client.Comments(task.ID)
+	if err != nil {
+		t.Fatalf("Comments failed: %v", err)
+	}
+	if len(comments) == 0 {
+		t.Fatal("Expected at least one comment, got zero")
+	}
+
+	got := comments[len(comments)-1]
+	if got.IssueID != task.ID {
+		t.Fatalf("Expected issue ID %s, got %s", task.ID, got.IssueID)
+	}
+	if got.Text != commentText {
+		t.Fatalf("Expected text %q, got %q", commentText, got.Text)
+	}
+	if got.Author == "" {
+		t.Fatal("Expected non-empty author")
+	}
+	if got.ID == 0 {
+		t.Fatal("Expected non-zero comment ID")
+	}
+	if got.CreatedAt.IsZero() {
+		t.Fatal("Expected non-zero created_at timestamp")
+	}
 }

@@ -29,6 +29,8 @@ func (m *Model) handleKeyPress(msg tea.KeyMsg) tea.Cmd {
 		return m.handleListKeys(msg)
 	case ViewDetail:
 		return m.handleDetailKeys(msg)
+	case ViewComments:
+		return m.handleCommentsKeys(msg)
 	case ViewForm:
 		return m.handleFormKeys(msg)
 	case ViewHelp:
@@ -195,6 +197,9 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 			}
 		}
 
+	case key.Matches(msg, m.keys.ViewComments):
+		return m.openCommentsForSelected(ViewList)
+
 	default:
 		// Check custom commands
 		if cmd := m.matchCustomCommand(msg, "list"); cmd != nil {
@@ -211,11 +216,23 @@ func (m *Model) handleDetailKeys(msg tea.KeyMsg) tea.Cmd {
 		m.mode = ViewList
 	case key.Matches(msg, m.keys.Help):
 		m.mode = ViewHelp
+	case key.Matches(msg, m.keys.ViewComments):
+		return m.openCommentsForSelected(ViewDetail)
 	default:
 		// Check custom commands
 		if cmd := m.matchCustomCommand(msg, "detail"); cmd != nil {
 			return cmd
 		}
+	}
+	return nil
+}
+
+func (m *Model) handleCommentsKeys(msg tea.KeyMsg) tea.Cmd {
+	switch {
+	case key.Matches(msg, m.keys.Cancel), key.Matches(msg, m.keys.Select), key.Matches(msg, m.keys.Quit):
+		m.mode = m.commentsReturnMode
+	case key.Matches(msg, m.keys.Help):
+		m.mode = ViewHelp
 	}
 	return nil
 }
@@ -619,6 +636,31 @@ func (m *Model) executeCustomCommand(cmd config.CustomCommand) tea.Cmd {
 		m.err = fmt.Errorf("failed to execute command: %w", err)
 	}
 
+	return nil
+}
+
+func (m *Model) openCommentsForSelected(returnMode ViewMode) tea.Cmd {
+	task := m.getSelectedTask()
+	if task == nil && m.selected != nil {
+		task = m.selected
+	}
+	if task == nil {
+		return nil
+	}
+
+	m.selected = task
+	m.mode = ViewComments
+	m.commentsReturnMode = returnMode
+	shouldLoad := !m.commentsLoaded[task.ID] && !m.commentsLoading[task.ID]
+	if shouldLoad {
+		m.commentsLoading[task.ID] = true
+		delete(m.commentsError, task.ID)
+	}
+	m.commentsView.GotoTop()
+	m.updateCommentsContent()
+	if shouldLoad {
+		return m.loadComments(task.ID)
+	}
 	return nil
 }
 

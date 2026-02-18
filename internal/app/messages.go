@@ -53,6 +53,13 @@ type clipboardCopiedMsg struct {
 	err  error
 }
 
+// commentsLoadedMsg is sent when issue comments are loaded.
+type commentsLoadedMsg struct {
+	issueID  string
+	comments []models.Comment
+	err      error
+}
+
 // clearStatusMsg clears the status flash message
 type clearStatusMsg struct{}
 
@@ -79,6 +86,14 @@ func (m Model) loadTasks() tea.Cmd {
 		tasks, err = enrichBlockedTasks(tasks, m.client, err)
 		tasks, err = enrichEpicTasks(tasks, m.client, err)
 		return tasksLoadedMsg{tasks: tasks, err: err}
+	}
+}
+
+// loadComments creates a command to load comments for a single issue.
+func (m Model) loadComments(issueID string) tea.Cmd {
+	return func() tea.Msg {
+		comments, err := m.client.Comments(issueID)
+		return commentsLoadedMsg{issueID: issueID, comments: comments, err: err}
 	}
 }
 

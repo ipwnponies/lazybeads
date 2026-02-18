@@ -29,6 +29,7 @@ type KeyMap struct {
 	EditAcceptance  key.Binding
 	EditFormField   key.Binding
 	CopyID          key.Binding
+	ViewComments    key.Binding
 
 	// Filtering
 	Filter     key.Binding
@@ -120,6 +121,10 @@ func DefaultKeyMap() KeyMap {
 		CopyID: key.NewBinding(
 			key.WithKeys("y"),
 			key.WithHelp("y", "copy id"),
+		),
+		ViewComments: key.NewBinding(
+			key.WithKeys("m"),
+			key.WithHelp("m", "comments"),
 		),
 		EditDescription: key.NewBinding(
 			key.WithKeys("d"),
@@ -227,7 +232,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown},
 		{k.Select, k.Add, k.Delete, k.Refresh},
 		{k.EditTitle, k.EditStatus, k.EditPriority, k.EditType},
-		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID},
+		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID, k.ViewComments},
 		{k.Filter, k.Ready, k.Open, k.All},
 		{k.Submit, k.Tab, k.ShiftTab},
 		{k.PrevView, k.NextView, k.PanelShrink, k.PanelExpand},

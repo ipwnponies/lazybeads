@@ -131,6 +131,21 @@ func (c *Client) Show(id string) (*models.Task, error) {
 	return &tasks[0], nil
 }
 
+// Comments returns timeline comments for a specific task.
+func (c *Client) Comments(id string) ([]models.Comment, error) {
+	out, err := exec.Command("bd", "comments", id, "--json").Output()
+	if err != nil {
+		return nil, fmt.Errorf("bd comments failed: %w", err)
+	}
+
+	var comments []models.Comment
+	if err := json.Unmarshal(out, &comments); err != nil {
+		return nil, fmt.Errorf("failed to parse bd comments output: %w", err)
+	}
+
+	return comments, nil
+}
+
 // CreateOptions holds options for creating a task
 type CreateOptions struct {
 	Title              string
