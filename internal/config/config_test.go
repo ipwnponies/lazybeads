@@ -11,7 +11,8 @@ func TestLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
 
-	configContent := `customCommands:
+	configContent := `detailContentColorMode: "gray"
+customCommands:
   - key: "D"
     description: "Test command"
     context: "list"
@@ -58,6 +59,10 @@ func TestLoad(t *testing.T) {
 	if cfg.CustomCommands[1].Context != "detail" {
 		t.Errorf("expected second command context to be 'detail', got '%s'", cfg.CustomCommands[1].Context)
 	}
+
+	if cfg.DetailContentColorMode != "gray" {
+		t.Errorf("expected detail content color mode to be 'gray', got '%s'", cfg.DetailContentColorMode)
+	}
 }
 
 func TestLoadNoConfig(t *testing.T) {
@@ -74,6 +79,10 @@ func TestLoadNoConfig(t *testing.T) {
 
 	if len(cfg.CustomCommands) != 0 {
 		t.Errorf("expected empty custom commands for missing config, got %d", len(cfg.CustomCommands))
+	}
+
+	if cfg.DetailContentColorMode != "alternate" {
+		t.Errorf("expected default detail content color mode to be 'alternate', got '%s'", cfg.DetailContentColorMode)
 	}
 }
 

@@ -158,6 +158,9 @@ type Model struct {
 
 	// Custom commands from config
 	customCommands []config.CustomCommand
+
+	// Detail content styling
+	detailContentColorMode string
 }
 
 type formBounds struct {
@@ -242,8 +245,10 @@ func New() Model {
 	// Load config (ignore errors, use empty config)
 	cfg, _ := config.Load()
 	var customCmds []config.CustomCommand
+	detailContentColorMode := "alternate"
 	if cfg != nil {
 		customCmds = cfg.CustomCommands
+		detailContentColorMode = cfg.DetailContentColorMode
 	}
 
 	// Build key map with custom commands
@@ -255,33 +260,34 @@ func New() Model {
 	helpList := newHelpList(helpItems)
 
 	return Model{
-		client:          beads.NewClient(),
-		keys:            keys,
-		help:            h,
-		mode:            ViewList,
-		focusedPanel:    FocusInProgress,
-		inProgressPanel: inProgressPanel,
-		openPanel:       openPanel,
-		closedPanel:     closedPanel,
-		detail:          vp,
-		commentsView:    commentsVP,
-		helpList:        helpList,
-		filterText:      filter,
-		helpItems:       helpItems,
-		searchInput:     searchInput,
-		helpFilterInput: helpFilterInput,
-		formTitle:       formTitle,
-		formDesc:        formDesc,
-		formNotes:       formNotes,
-		formDesign:      formDesign,
-		formAcceptance:  formAcceptance,
-		formPriority:    2,
-		formType:        "feature",
-		commentsByIssue: make(map[string][]models.Comment),
-		commentsError:   make(map[string]string),
-		commentsLoaded:  make(map[string]bool),
-		commentsLoading: make(map[string]bool),
-		customCommands:  customCmds,
+		client:                 beads.NewClient(),
+		keys:                   keys,
+		help:                   h,
+		mode:                   ViewList,
+		focusedPanel:           FocusInProgress,
+		inProgressPanel:        inProgressPanel,
+		openPanel:              openPanel,
+		closedPanel:            closedPanel,
+		detail:                 vp,
+		commentsView:           commentsVP,
+		helpList:               helpList,
+		filterText:             filter,
+		helpItems:              helpItems,
+		searchInput:            searchInput,
+		helpFilterInput:        helpFilterInput,
+		formTitle:              formTitle,
+		formDesc:               formDesc,
+		formNotes:              formNotes,
+		formDesign:             formDesign,
+		formAcceptance:         formAcceptance,
+		formPriority:           2,
+		formType:               "feature",
+		commentsByIssue:        make(map[string][]models.Comment),
+		commentsError:          make(map[string]string),
+		commentsLoaded:         make(map[string]bool),
+		commentsLoading:        make(map[string]bool),
+		customCommands:         customCmds,
+		detailContentColorMode: detailContentColorMode,
 	}
 }
 

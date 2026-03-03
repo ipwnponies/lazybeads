@@ -119,6 +119,19 @@ var (
 	DetailValueStyle = lipgloss.NewStyle().
 				Foreground(ColorWhite)
 
+	ContentBlockBlue17 = lipgloss.NewStyle().
+				Background(lipgloss.Color("17")).
+				Foreground(ColorWhite)
+	ContentBlockGray236 = lipgloss.NewStyle().
+				Background(lipgloss.Color("236")).
+				Foreground(ColorWhite)
+	ContentBlockBlue18 = lipgloss.NewStyle().
+				Background(lipgloss.Color("18")).
+				Foreground(ColorWhite)
+	ContentBlockGray237 = lipgloss.NewStyle().
+				Background(lipgloss.Color("237")).
+				Foreground(ColorWhite)
+
 	// Form styles
 	FormLabelStyle = lipgloss.NewStyle().
 			Foreground(ColorSecondary).

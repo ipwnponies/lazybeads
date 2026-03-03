@@ -147,6 +147,14 @@ Available template variables:
 - `{{.Priority}}` - Priority (0-4)
 - `{{.Description}}` - Full description
 
+### Detail content styling
+
+Choose how detail content blocks are colored.
+
+```yaml
+detailContentColorMode: "alternate" # alternate, blue, or gray
+```
+
 ## Project structure
 
 ```

@@ -424,6 +424,8 @@ func (m *Model) updateDetailContent() {
 		b.WriteString("\n")
 	}
 
+	sectionIndex := 0
+
 	renderWrappedSection := func(label, value string) {
 		if value == "" {
 			return
@@ -436,7 +438,34 @@ func (m *Model) updateDetailContent() {
 			descWidth = 20
 		}
 		wrapped := lipgloss.NewStyle().Width(descWidth).Render(value)
-		b.WriteString(wrapped)
+		isSingleLine := !strings.Contains(wrapped, "\n")
+		useBlue := true
+		switch m.detailContentColorMode {
+		case "blue":
+			useBlue = true
+		case "gray":
+			useBlue = false
+		default:
+			useBlue = sectionIndex%2 == 0
+			sectionIndex++
+		}
+
+		var style lipgloss.Style
+		if useBlue {
+			if isSingleLine {
+				style = ui.ContentBlockBlue18
+			} else {
+				style = ui.ContentBlockBlue17
+			}
+		} else {
+			if isSingleLine {
+				style = ui.ContentBlockGray237
+			} else {
+				style = ui.ContentBlockGray236
+			}
+		}
+
+		b.WriteString(style.Width(descWidth).Render(value))
 		b.WriteString("\n")
 	}
 

@@ -3,13 +3,15 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the application configuration
 type Config struct {
-	CustomCommands []CustomCommand `yaml:"customCommands"`
+	CustomCommands         []CustomCommand `yaml:"customCommands"`
+	DetailContentColorMode string          `yaml:"detailContentColorMode"`
 }
 
 // CustomCommand represents a user-defined command
@@ -26,7 +28,7 @@ func Load() (*Config, error) {
 
 	// If config file doesn't exist, return empty config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &Config{}, nil
+		return &Config{DetailContentColorMode: normalizeDetailContentColorMode("")}, nil
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -46,7 +48,23 @@ func Load() (*Config, error) {
 		}
 	}
 
+	cfg.DetailContentColorMode = normalizeDetailContentColorMode(cfg.DetailContentColorMode)
+
 	return &cfg, nil
+}
+
+func normalizeDetailContentColorMode(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
+	case "blue":
+		return "blue"
+	case "gray", "grey":
+		return "gray"
+	case "alternate", "alternating":
+		return "alternate"
+	default:
+		return "alternate"
+	}
 }
 
 // ConfigPath returns the config file path to use.
