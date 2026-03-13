@@ -11,11 +11,25 @@ import (
 )
 
 // Client wraps the bd CLI commands
-type Client struct{}
+type Client struct {
+	commandOutput func(args ...string) ([]byte, error)
+}
 
 // NewClient creates a new beads client
 func NewClient() *Client {
-	return &Client{}
+	return &Client{commandOutput: defaultCommandOutput}
+}
+
+func (c *Client) output(args ...string) ([]byte, error) {
+	if c != nil && c.commandOutput != nil {
+		return c.commandOutput(args...)
+	}
+
+	return defaultCommandOutput(args...)
+}
+
+func defaultCommandOutput(args ...string) ([]byte, error) {
+	return exec.Command("bd", args...).Output()
 }
 
 // IsInitialized checks if beads is initialized in current directory
@@ -35,17 +49,19 @@ func (c *Client) Init() error {
 
 // List returns tasks with optional filters
 func (c *Client) List(filters ...string) ([]models.Task, error) {
-	args := []string{"list", "--json"}
-	args = append(args, filters...)
-
-	out, err := exec.Command("bd", args...).Output()
+	out, err := c.compatibilityListOutput(filters...)
 	if err != nil {
 		return nil, fmt.Errorf("bd list failed: %w", err)
 	}
 
-	var tasks []models.Task
-	if err := json.Unmarshal(out, &tasks); err != nil {
+	tasks, err := parseTasksOutput(out)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse bd list output: %w", err)
+	}
+
+	tasks, err = c.resolveAmbiguousTasks(tasks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve bd list output: %w", err)
 	}
 
 	return tasks, nil
@@ -58,16 +74,19 @@ func (c *Client) ListOpen() ([]models.Task, error) {
 
 // Ready returns tasks with no blockers
 func (c *Client) Ready() ([]models.Task, error) {
-	args := []string{"ready", "--json"}
-
-	out, err := exec.Command("bd", args...).Output()
+	out, err := c.compatibilityReadyOutput()
 	if err != nil {
 		return nil, fmt.Errorf("bd ready failed: %w", err)
 	}
 
-	var tasks []models.Task
-	if err := json.Unmarshal(out, &tasks); err != nil {
+	tasks, err := parseTasksOutput(out)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse bd ready output: %w", err)
+	}
+
+	tasks, err = c.resolveAmbiguousTasks(tasks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve bd ready output: %w", err)
 	}
 
 	return tasks, nil
@@ -75,7 +94,7 @@ func (c *Client) Ready() ([]models.Task, error) {
 
 // Blocked returns tasks that are blocked by open dependencies
 func (c *Client) Blocked() ([]models.Task, error) {
-	out, err := exec.Command("bd", "blocked", "--json").Output()
+	out, err := c.output("blocked", "--json")
 	if err != nil {
 		return nil, fmt.Errorf("bd blocked failed: %w", err)
 	}
@@ -98,7 +117,7 @@ func (c *Client) ListDependencies(id string, direction string, depType string) (
 		args = append(args, "-t", depType)
 	}
 
-	out, err := exec.Command("bd", args...).Output()
+	out, err := c.output(args...)
 	if err != nil {
 		return nil, fmt.Errorf("bd dep list failed: %w", err)
 	}
@@ -113,14 +132,13 @@ func (c *Client) ListDependencies(id string, direction string, depType string) (
 
 // Show returns details for a specific task
 func (c *Client) Show(id string) (*models.Task, error) {
-	out, err := exec.Command("bd", "show", id, "--json").Output()
+	out, err := c.output("show", id, "--json")
 	if err != nil {
 		return nil, fmt.Errorf("bd show failed: %w", err)
 	}
 
-	// bd show returns an array with single item
-	var tasks []models.Task
-	if err := json.Unmarshal(out, &tasks); err != nil {
+	tasks, err := parseTasksOutput(out)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse bd show output: %w", err)
 	}
 
@@ -133,7 +151,7 @@ func (c *Client) Show(id string) (*models.Task, error) {
 
 // Comments returns timeline comments for a specific task.
 func (c *Client) Comments(id string) ([]models.Comment, error) {
-	out, err := exec.Command("bd", "comments", id, "--json").Output()
+	out, err := c.output("comments", id, "--json")
 	if err != nil {
 		return nil, fmt.Errorf("bd comments failed: %w", err)
 	}
@@ -184,7 +202,7 @@ func (c *Client) Create(opts CreateOptions) (*models.Task, error) {
 		args = append(args, "-l", strings.Join(opts.Labels, ","))
 	}
 
-	out, err := exec.Command("bd", args...).Output()
+	out, err := c.output(args...)
 	if err != nil {
 		return nil, fmt.Errorf("bd create failed: %w", err)
 	}
@@ -196,6 +214,100 @@ func (c *Client) Create(opts CreateOptions) (*models.Task, error) {
 	}
 
 	return &task, nil
+}
+
+func (c *Client) compatibilityListOutput(filters ...string) ([]byte, error) {
+	preferred := []string{"list", "--json", "--flat"}
+	preferred = append(preferred, filters...)
+	out, preferredErr := c.output(preferred...)
+	if preferredErr == nil {
+		return out, nil
+	}
+
+	legacy := []string{"list", "--json"}
+	legacy = append(legacy, filters...)
+	out, legacyErr := c.output(legacy...)
+	if legacyErr != nil {
+		return nil, fmt.Errorf("preferred command failed (%w) and legacy command failed (%w)", preferredErr, legacyErr)
+	}
+
+	return out, nil
+}
+
+func (c *Client) compatibilityReadyOutput() ([]byte, error) {
+	preferred := []string{"ready", "--json", "--plain"}
+	out, preferredErr := c.output(preferred...)
+	if preferredErr == nil {
+		return out, nil
+	}
+
+	legacy := []string{"ready", "--json"}
+	out, legacyErr := c.output(legacy...)
+	if legacyErr != nil {
+		return nil, fmt.Errorf("preferred command failed (%w) and legacy command failed (%w)", preferredErr, legacyErr)
+	}
+
+	return out, nil
+}
+
+func parseTasksOutput(out []byte) ([]models.Task, error) {
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return []models.Task{}, nil
+	}
+
+	var tasks []models.Task
+	if err := json.Unmarshal([]byte(trimmed), &tasks); err == nil {
+		return tasks, nil
+	}
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &payload); err == nil {
+		for _, key := range []string{"tasks", "issues", "items", "results", "data"} {
+			raw, ok := payload[key]
+			if !ok {
+				continue
+			}
+
+			if err := json.Unmarshal(raw, &tasks); err != nil {
+				return nil, fmt.Errorf("failed to parse %q payload: %w", key, err)
+			}
+
+			return tasks, nil
+		}
+
+		var task models.Task
+		if err := json.Unmarshal([]byte(trimmed), &task); err == nil && task.ID != "" {
+			return []models.Task{task}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported payload shape")
+}
+
+func (c *Client) resolveAmbiguousTasks(tasks []models.Task) ([]models.Task, error) {
+	for i := range tasks {
+		if !needsShowFallback(tasks[i]) {
+			continue
+		}
+
+		fullTask, err := c.Show(tasks[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		tasks[i] = *fullTask
+	}
+
+	return tasks, nil
+}
+
+func needsShowFallback(task models.Task) bool {
+	if task.ID == "" {
+		return false
+	}
+
+	return task.Title == "" || task.Status == "" || task.Type == ""
 }
 
 // UpdateOptions holds options for updating a task

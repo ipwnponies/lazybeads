@@ -1,8 +1,11 @@
 package beads
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 )
 
@@ -281,5 +284,115 @@ func TestClient_Comments_WithComment(t *testing.T) {
 	}
 	if got.CreatedAt.IsZero() {
 		t.Fatal("Expected non-zero created_at timestamp")
+	}
+}
+
+type stubCommandResult struct {
+	output string
+	err    error
+}
+
+func newStubClient(t *testing.T, results map[string]stubCommandResult, calls *[]string) *Client {
+	t.Helper()
+
+	return &Client{
+		commandOutput: func(args ...string) ([]byte, error) {
+			t.Helper()
+
+			key := strings.Join(args, " ")
+			*calls = append(*calls, key)
+
+			result, ok := results[key]
+			if !ok {
+				return nil, fmt.Errorf("unexpected command: %s", key)
+			}
+
+			if result.err != nil {
+				return nil, result.err
+			}
+
+			return []byte(result.output), nil
+		},
+	}
+}
+
+func TestClient_List_FallsBackToLegacyCommand(t *testing.T) {
+	var calls []string
+	client := newStubClient(t, map[string]stubCommandResult{
+		"list --json --flat --all": {err: errors.New("unknown flag: --flat")},
+		"list --json --all":        {output: `[{"id":"task-1","title":"Task 1","status":"open","issue_type":"task"}]`},
+	}, &calls)
+
+	tasks, err := client.List("--all")
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].ID != "task-1" {
+		t.Fatalf("expected task id task-1, got %s", tasks[0].ID)
+	}
+
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 command calls, got %d", len(calls))
+	}
+	if calls[0] != "list --json --flat --all" {
+		t.Fatalf("expected first call to preferred list command, got %s", calls[0])
+	}
+	if calls[1] != "list --json --all" {
+		t.Fatalf("expected fallback legacy call, got %s", calls[1])
+	}
+}
+
+func TestClient_List_ResolvesAmbiguousEntryViaShow(t *testing.T) {
+	var calls []string
+	client := newStubClient(t, map[string]stubCommandResult{
+		"list --json --flat": {output: `[{"id":"task-2","title":"Task 2"}]`},
+		"show task-2 --json": {output: `[{"id":"task-2","title":"Task 2","status":"in_progress","issue_type":"bug"}]`},
+	}, &calls)
+
+	tasks, err := client.List()
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Status != "in_progress" {
+		t.Fatalf("expected status in_progress, got %s", tasks[0].Status)
+	}
+	if tasks[0].Type != "bug" {
+		t.Fatalf("expected type bug, got %s", tasks[0].Type)
+	}
+
+	if len(calls) != 2 {
+		t.Fatalf("expected list + show calls, got %v", calls)
+	}
+}
+
+func TestClient_Ready_ParsesEnvelopeAndTypeAlias(t *testing.T) {
+	var calls []string
+	client := newStubClient(t, map[string]stubCommandResult{
+		"ready --json --plain": {
+			output: `{"issues":[{"id":"task-3","title":"Task 3","status":"open","type":"feature","owner":"owner@example.com"}]}`,
+		},
+	}, &calls)
+
+	tasks, err := client.Ready()
+	if err != nil {
+		t.Fatalf("Ready failed: %v", err)
+	}
+
+	if len(tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(tasks))
+	}
+	if tasks[0].Type != "feature" {
+		t.Fatalf("expected type feature, got %s", tasks[0].Type)
+	}
+	if tasks[0].Assignee != "owner@example.com" {
+		t.Fatalf("expected assignee owner@example.com, got %s", tasks[0].Assignee)
 	}
 }

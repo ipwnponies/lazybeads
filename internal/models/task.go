@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"time"
 )
@@ -36,6 +37,31 @@ type Task struct {
 	DependencyCount    int        `json:"dependency_count,omitempty"`
 	DependentCount     int        `json:"dependent_count,omitempty"`
 	DependencyType     string     `json:"dependency_type,omitempty"`
+}
+
+// UnmarshalJSON keeps task decoding compatible across command payload variants.
+func (t *Task) UnmarshalJSON(data []byte) error {
+	type alias Task
+
+	var raw struct {
+		alias
+		Type  string `json:"type"`
+		Owner string `json:"owner"`
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	*t = Task(raw.alias)
+	if t.Type == "" {
+		t.Type = raw.Type
+	}
+	if t.Assignee == "" {
+		t.Assignee = raw.Owner
+	}
+
+	return nil
 }
 
 // PriorityString returns a short priority label
