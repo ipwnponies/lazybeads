@@ -131,6 +131,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				{Label: "in_progress", Value: "in_progress", Shortcut: "i"},
 				{Label: "closed", Value: "closed", Shortcut: "c"},
 			}
+			options = prependCurrentModalOption(options, task.Status)
 			m.modal = ui.NewModalSelect("Edit Status", task.ID, options, task.Status)
 			m.mode = ViewEditStatus
 		}
@@ -157,6 +158,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 				{Label: "epic", Value: "epic", Shortcut: "e"},
 				{Label: "chore", Value: "chore", Shortcut: "r"},
 			}
+			options = prependCurrentModalOption(options, task.Type)
 			m.modal = ui.NewModalSelect("Edit Type", task.ID, options, task.Type)
 			m.mode = ViewEditType
 		}
@@ -662,6 +664,22 @@ func (m *Model) openCommentsForSelected(returnMode ViewMode) tea.Cmd {
 		return m.loadComments(task.ID)
 	}
 	return nil
+}
+
+func prependCurrentModalOption(options []ui.ModalOption, currentValue string) []ui.ModalOption {
+	if currentValue == "" {
+		return options
+	}
+	for _, option := range options {
+		if option.Value == currentValue {
+			return options
+		}
+	}
+
+	withCurrent := make([]ui.ModalOption, 0, len(options)+1)
+	withCurrent = append(withCurrent, ui.ModalOption{Label: currentValue, Value: currentValue})
+	withCurrent = append(withCurrent, options...)
+	return withCurrent
 }
 
 // shellEscape escapes a string for safe use in shell commands

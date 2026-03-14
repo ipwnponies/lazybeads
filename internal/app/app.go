@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -45,6 +46,12 @@ const (
 )
 
 const formFieldCount = 8
+
+var panelStatusOrder = map[string]int{
+	"in_progress": 0,
+	"open":        1,
+	"closed":      2,
+}
 
 type editorField string
 
@@ -741,8 +748,20 @@ func maxInt(a, b int) int {
 
 func (m *Model) distributeTasks() {
 	var inProgress, open, closed []models.Task
+	unknownStatusCounts := make(map[string]int)
+	unknownStatusIDs := make(map[string][]string)
 	filterLower := strings.ToLower(m.filterQuery)
-	for _, t := range m.tasks {
+
+	filteredTasks := make([]models.Task, 0, len(m.tasks))
+	for _, task := range m.tasks {
+		if task.Type == "tombstone" {
+			continue
+		}
+		filteredTasks = append(filteredTasks, task)
+	}
+	stabilizeTaskOrder(filteredTasks)
+
+	for _, t := range filteredTasks {
 		// Apply filter if set
 		if filterLower != "" {
 			titleLower := strings.ToLower(t.Title)
@@ -758,6 +777,14 @@ func (m *Model) distributeTasks() {
 			open = append(open, t)
 		case "closed":
 			closed = append(closed, t)
+		default:
+			statusKey := t.Status
+			if strings.TrimSpace(statusKey) == "" {
+				statusKey = "<empty>"
+			}
+			unknownStatusCounts[statusKey]++
+			unknownStatusIDs[statusKey] = append(unknownStatusIDs[statusKey], t.ID)
+			open = append(open, t)
 		}
 	}
 
@@ -765,7 +792,7 @@ func (m *Model) distributeTasks() {
 	sort.Slice(closed, func(i, j int) bool {
 		// Tasks with ClosedAt come before those without
 		if closed[i].ClosedAt == nil && closed[j].ClosedAt == nil {
-			return false
+			return taskOrderLess(closed[i], closed[j])
 		}
 		if closed[i].ClosedAt == nil {
 			return false
@@ -774,6 +801,9 @@ func (m *Model) distributeTasks() {
 			return true
 		}
 		// Most recently closed first (descending order)
+		if closed[i].ClosedAt.Equal(*closed[j].ClosedAt) {
+			return taskOrderLess(closed[i], closed[j])
+		}
 		return closed[i].ClosedAt.After(*closed[j].ClosedAt)
 	})
 
@@ -782,6 +812,14 @@ func (m *Model) distributeTasks() {
 	inProgress = groupTasksByEpic(inProgress, m.tasks)
 	open = groupTasksByEpic(open, m.tasks)
 	closed = groupTasksByEpic(closed, m.tasks)
+
+	if len(unknownStatusCounts) > 0 {
+		if err := buildUnknownStatusPlacementError(unknownStatusCounts, unknownStatusIDs); err != nil {
+			if m.err == nil {
+				m.err = err
+			}
+		}
+	}
 
 	m.inProgressPanel.SetTasks(inProgress)
 	m.openPanel.SetTasks(open)
@@ -797,6 +835,58 @@ func (m *Model) distributeTasks() {
 
 	// Recalculate sizes since panel visibility may have changed
 	m.updateSizes()
+}
+
+func buildUnknownStatusPlacementError(counts map[string]int, idsByStatus map[string][]string) error {
+	if len(counts) == 0 {
+		return nil
+	}
+
+	statuses := make([]string, 0, len(counts))
+	for status := range counts {
+		statuses = append(statuses, status)
+	}
+	sort.Strings(statuses)
+
+	parts := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		ids := append([]string(nil), idsByStatus[status]...)
+		sort.Strings(ids)
+		parts = append(parts, fmt.Sprintf("%s (%d): %s", status, counts[status], strings.Join(ids, ", ")))
+	}
+
+	return fmt.Errorf("tasks with unsupported status shown in Open panel: %s", strings.Join(parts, " | "))
+}
+
+func stabilizeTaskOrder(tasks []models.Task) {
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return taskOrderLess(tasks[i], tasks[j])
+	})
+}
+
+func taskOrderLess(a, b models.Task) bool {
+	aStatusRank, aKnown := panelStatusOrder[a.Status]
+	bStatusRank, bKnown := panelStatusOrder[b.Status]
+	if !aKnown {
+		aStatusRank = len(panelStatusOrder)
+	}
+	if !bKnown {
+		bStatusRank = len(panelStatusOrder)
+	}
+	if aStatusRank != bStatusRank {
+		return aStatusRank < bStatusRank
+	}
+
+	if a.Priority != b.Priority {
+		return a.Priority < b.Priority
+	}
+	if !a.UpdatedAt.Equal(b.UpdatedAt) {
+		return a.UpdatedAt.After(b.UpdatedAt)
+	}
+	if !a.CreatedAt.Equal(b.CreatedAt) {
+		return a.CreatedAt.Before(b.CreatedAt)
+	}
+	return a.ID < b.ID
 }
 
 func (m *Model) getSelectedTask() *models.Task {
