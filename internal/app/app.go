@@ -754,7 +754,7 @@ func (m *Model) distributeTasks() {
 
 	filteredTasks := make([]models.Task, 0, len(m.tasks))
 	for _, task := range m.tasks {
-		if task.Type == "tombstone" {
+		if isTombstoneTask(task) {
 			continue
 		}
 		filteredTasks = append(filteredTasks, task)
@@ -856,6 +856,12 @@ func buildUnknownStatusPlacementError(counts map[string]int, idsByStatus map[str
 	}
 
 	return fmt.Errorf("tasks with unsupported status shown in Open panel: %s", strings.Join(parts, " | "))
+}
+
+func isTombstoneTask(task models.Task) bool {
+	status := strings.TrimSpace(strings.ToLower(task.Status))
+	taskType := strings.TrimSpace(strings.ToLower(task.Type))
+	return status == "tombstone" || taskType == "tombstone"
 }
 
 func stabilizeTaskOrder(tasks []models.Task) {
