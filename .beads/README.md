@@ -24,10 +24,10 @@ bd show <issue-id>
 
 # Update issue status
 bd update <issue-id> --status in_progress
-bd update <issue-id> --status done
+bd close <issue-id>
 
-# Sync with git remote
-bd sync
+# Inspect issue state in machine-readable form
+bd status --json
 ```
 
 ### Working with Issues
@@ -36,7 +36,7 @@ Issues in Beads are:
 - **Git-native**: Stored in `.beads/issues.jsonl` and synced like code
 - **AI-friendly**: CLI-first design works perfectly with AI coding agents
 - **Branch-aware**: Issues can follow your branch workflow
-- **Always in sync**: Auto-syncs with your commits
+- **Inspectable**: Use `bd status --json` and `bd list --json --flat` for deterministic automation
 
 ## Why Beads?
 
@@ -47,11 +47,11 @@ Issues in Beads are:
 
 🚀 **Developer Focused**
 - Issues live in your repo, right next to your code
-- Works offline, syncs when you push
+- Works offline, then push normal git commits
 - Fast, lightweight, and stays out of your way
 
 🔧 **Git Integration**
-- Automatic sync with git commits
+- Issue data lives in-repo and is versioned with git
 - Branch-aware issue tracking
 - Intelligent JSONL merge resolution
 

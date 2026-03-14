@@ -46,7 +46,7 @@ bd ready                  # Find work ready to start
 bd show <id>              # View issue details
 bd update <id> --claim    # Claim and start work
 bd close <id>             # Complete work
-bd sync --from-main       # Sync beads from main branch
+bd status --json          # Verify issue state before/after updates
 ```
 
 ### Workflow
@@ -54,4 +54,4 @@ bd sync --from-main       # Sync beads from main branch
 2. Claim an issue before starting
 3. Implement, test, commit
 4. Close the issue when done
-5. Sync and commit before ending session
+5. Verify with `bd status --json`, then push before ending session
