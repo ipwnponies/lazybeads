@@ -220,6 +220,10 @@ func (m *Model) handleDetailKeys(msg tea.KeyMsg) tea.Cmd {
 		m.mode = ViewHelp
 	case key.Matches(msg, m.keys.ViewComments):
 		return m.openCommentsForSelected(ViewDetail)
+	case key.Matches(msg, m.keys.DetailScrollDown):
+		m.detail.ScrollDown(m.detailScrollStep)
+	case key.Matches(msg, m.keys.DetailScrollUp):
+		m.detail.ScrollUp(m.detailScrollStep)
 	default:
 		// Check custom commands
 		if cmd := m.matchCustomCommand(msg, "detail"); cmd != nil {
@@ -632,13 +636,23 @@ func (m *Model) executeCustomCommand(cmd config.CustomCommand) tea.Cmd {
 		return nil
 	}
 
-	// Execute command non-blocking (for tmux commands)
-	c := exec.Command("sh", "-c", rendered)
-	if err := c.Start(); err != nil {
+	if err := m.customCommandRunner()(rendered); err != nil {
 		m.err = fmt.Errorf("failed to execute command: %w", err)
 	}
 
 	return nil
+}
+
+func (m *Model) customCommandRunner() func(string) error {
+	if m.customRunner != nil {
+		return m.customRunner
+	}
+	return defaultCustomCommandRunner
+}
+
+func defaultCustomCommandRunner(rendered string) error {
+	c := exec.Command("sh", "-c", rendered)
+	return c.Start()
 }
 
 func (m *Model) openCommentsForSelected(returnMode ViewMode) tea.Cmd {

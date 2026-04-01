@@ -19,17 +19,19 @@ type KeyMap struct {
 	Refresh key.Binding
 
 	// Field-specific editing
-	EditTitle       key.Binding
-	EditStatus      key.Binding
-	EditPriority    key.Binding
-	EditType        key.Binding
-	EditDescription key.Binding
-	EditNotes       key.Binding
-	EditDesign      key.Binding
-	EditAcceptance  key.Binding
-	EditFormField   key.Binding
-	CopyID          key.Binding
-	ViewComments    key.Binding
+	EditTitle        key.Binding
+	EditStatus       key.Binding
+	EditPriority     key.Binding
+	EditType         key.Binding
+	EditDescription  key.Binding
+	EditNotes        key.Binding
+	EditDesign       key.Binding
+	EditAcceptance   key.Binding
+	EditFormField    key.Binding
+	CopyID           key.Binding
+	ViewComments     key.Binding
+	DetailScrollUp   key.Binding
+	DetailScrollDown key.Binding
 
 	// Filtering
 	Filter     key.Binding
@@ -125,6 +127,14 @@ func DefaultKeyMap() KeyMap {
 		ViewComments: key.NewBinding(
 			key.WithKeys("m"),
 			key.WithHelp("m", "comments"),
+		),
+		DetailScrollUp: key.NewBinding(
+			key.WithKeys(","),
+			key.WithHelp(",", "detail up"),
+		),
+		DetailScrollDown: key.NewBinding(
+			key.WithKeys("."),
+			key.WithHelp(".", "detail down"),
 		),
 		EditDescription: key.NewBinding(
 			key.WithKeys("d"),
@@ -232,7 +242,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Up, k.Down, k.Top, k.Bottom, k.PageUp, k.PageDown},
 		{k.Select, k.Add, k.Delete, k.Refresh},
 		{k.EditTitle, k.EditStatus, k.EditPriority, k.EditType},
-		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID, k.ViewComments},
+		{k.EditDescription, k.EditNotes, k.EditDesign, k.EditAcceptance, k.EditFormField, k.CopyID, k.ViewComments, k.DetailScrollUp, k.DetailScrollDown},
 		{k.Filter, k.Ready, k.Open, k.All},
 		{k.Submit, k.Tab, k.ShiftTab},
 		{k.PrevView, k.NextView, k.PanelShrink, k.PanelExpand},

@@ -110,7 +110,7 @@ func (m Model) viewDetailOverlay() string {
 		Render(m.detail.View())
 	b.WriteString(content)
 	b.WriteString("\n")
-	b.WriteString(ui.HelpBarStyle.Render("enter/esc: back  ?: help"))
+	b.WriteString(ui.HelpBarStyle.Render(".: down  ,: up  wheel: scroll  m: comments  enter/esc: back  ?: help"))
 
 	return b.String()
 }
@@ -239,6 +239,18 @@ func (m Model) renderStatusBar() string {
 		// Minimal key hints during search
 		parts = append(parts, ui.HelpKeyStyle.Render("enter")+":"+ui.HelpDescStyle.Render("confirm"))
 		parts = append(parts, ui.HelpKeyStyle.Render("esc")+":"+ui.HelpDescStyle.Render("clear"))
+	} else if m.mode == ViewDetail {
+		parts = append(parts,
+			ui.HelpKeyStyle.Render(".")+":"+ui.HelpDescStyle.Render("down"),
+			ui.HelpKeyStyle.Render(",")+":"+ui.HelpDescStyle.Render("up"),
+			ui.HelpKeyStyle.Render("wheel")+":"+ui.HelpDescStyle.Render("scroll"),
+			ui.HelpKeyStyle.Render("m")+":"+ui.HelpDescStyle.Render("comments"),
+			ui.HelpKeyStyle.Render("enter/esc")+":"+ui.HelpDescStyle.Render("back"),
+			ui.HelpKeyStyle.Render("?")+":"+ui.HelpDescStyle.Render("help"),
+		)
+		if m.filterQuery != "" {
+			parts = append(parts, ui.HelpKeyStyle.Render("/:")+ui.HelpDescStyle.Render(m.filterQuery))
+		}
 	} else if m.filterQuery != "" {
 		// When filter is active (but not in search mode), show search results
 		// Filter indicator

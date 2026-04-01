@@ -12,6 +12,7 @@ import (
 type Config struct {
 	CustomCommands         []CustomCommand `yaml:"customCommands"`
 	DetailContentColorMode string          `yaml:"detailContentColorMode"`
+	DetailScrollStep       int             `yaml:"detailScrollStep"`
 }
 
 // CustomCommand represents a user-defined command
@@ -28,7 +29,10 @@ func Load() (*Config, error) {
 
 	// If config file doesn't exist, return empty config
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &Config{DetailContentColorMode: normalizeDetailContentColorMode("")}, nil
+		return &Config{
+			DetailContentColorMode: normalizeDetailContentColorMode(""),
+			DetailScrollStep:       normalizeDetailScrollStep(0),
+		}, nil
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -49,8 +53,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg.DetailContentColorMode = normalizeDetailContentColorMode(cfg.DetailContentColorMode)
+	cfg.DetailScrollStep = normalizeDetailScrollStep(cfg.DetailScrollStep)
 
 	return &cfg, nil
+}
+
+func normalizeDetailScrollStep(value int) int {
+	if value > 0 {
+		return value
+	}
+	return 10
 }
 
 func normalizeDetailContentColorMode(value string) string {

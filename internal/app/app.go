@@ -165,9 +165,11 @@ type Model struct {
 
 	// Custom commands from config
 	customCommands []config.CustomCommand
+	customRunner   func(string) error
 
 	// Detail content styling
 	detailContentColorMode string
+	detailScrollStep       int
 }
 
 type formBounds struct {
@@ -179,6 +181,12 @@ type formBounds struct {
 
 // New creates a new application model
 func New() Model {
+	// Load config (ignore errors, use empty config)
+	cfg, _ := config.Load()
+	return newModelWithConfig(cfg)
+}
+
+func newModelWithConfig(cfg *config.Config) Model {
 	// Initialize help
 	h := help.New()
 	h.ShowAll = false
@@ -249,13 +257,15 @@ func New() Model {
 	formAcceptance.FocusedStyle.Base = ui.FormInputFocusedStyle
 	formAcceptance.BlurredStyle.Base = ui.FormInputStyle
 
-	// Load config (ignore errors, use empty config)
-	cfg, _ := config.Load()
 	var customCmds []config.CustomCommand
 	detailContentColorMode := "alternate"
+	detailScrollStep := 10
 	if cfg != nil {
 		customCmds = cfg.CustomCommands
 		detailContentColorMode = cfg.DetailContentColorMode
+		if cfg.DetailScrollStep > 0 {
+			detailScrollStep = cfg.DetailScrollStep
+		}
 	}
 
 	// Build key map with custom commands
@@ -294,7 +304,9 @@ func New() Model {
 		commentsLoaded:         make(map[string]bool),
 		commentsLoading:        make(map[string]bool),
 		customCommands:         customCmds,
+		customRunner:           defaultCustomCommandRunner,
 		detailContentColorMode: detailContentColorMode,
+		detailScrollStep:       detailScrollStep,
 	}
 }
 
@@ -898,13 +910,19 @@ func taskOrderLess(a, b models.Task) bool {
 func (m *Model) getSelectedTask() *models.Task {
 	switch m.focusedPanel {
 	case FocusInProgress:
-		return m.inProgressPanel.SelectedTask()
+		if task := m.inProgressPanel.SelectedTask(); task != nil {
+			return task
+		}
 	case FocusOpen:
-		return m.openPanel.SelectedTask()
+		if task := m.openPanel.SelectedTask(); task != nil {
+			return task
+		}
 	case FocusClosed:
-		return m.closedPanel.SelectedTask()
+		if task := m.closedPanel.SelectedTask(); task != nil {
+			return task
+		}
 	}
-	return nil
+	return m.selected
 }
 
 // isInProgressVisible returns true if the In Progress panel should be shown

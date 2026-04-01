@@ -64,10 +64,7 @@ func helpItemsToListItems(items []helpItem) []list.Item {
 }
 
 func buildHelpItems(keys ui.KeyMap, customCmds []config.CustomCommand) []helpItem {
-	customKeySet := make(map[string]struct{}, len(customCmds))
-	for _, cmd := range customCmds {
-		customKeySet[cmd.Key] = struct{}{}
-	}
+	customKeySet := buildCustomKeySet(customCmds)
 
 	var items []helpItem
 	for _, group := range keys.FullHelp() {
@@ -76,7 +73,7 @@ func buildHelpItems(keys ui.KeyMap, customCmds []config.CustomCommand) []helpIte
 			if help.Key == "" || help.Desc == "" {
 				continue
 			}
-			if _, isCustom := customKeySet[help.Key]; isCustom {
+			if bindingCollidesWithCustom(binding, customKeySet) && !isReservedDetailScrollBinding(keys, binding) {
 				continue
 			}
 			trigger := firstBindingKey(binding.Keys())
@@ -101,6 +98,39 @@ func buildHelpItems(keys ui.KeyMap, customCmds []config.CustomCommand) []helpIte
 	}
 
 	return items
+}
+
+func buildCustomKeySet(customCmds []config.CustomCommand) map[string]struct{} {
+	customKeySet := make(map[string]struct{}, len(customCmds))
+	for _, cmd := range customCmds {
+		customKeySet[cmd.Key] = struct{}{}
+	}
+	return customKeySet
+}
+
+func bindingCollidesWithCustom(binding interface{ Keys() []string }, customKeySet map[string]struct{}) bool {
+	for _, key := range binding.Keys() {
+		if _, ok := customKeySet[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func isReservedDetailScrollBinding(keys ui.KeyMap, binding interface{ Keys() []string }) bool {
+	return sameBindingKeys(binding.Keys(), keys.DetailScrollUp.Keys()) || sameBindingKeys(binding.Keys(), keys.DetailScrollDown.Keys())
+}
+
+func sameBindingKeys(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func firstBindingKey(keys []string) string {

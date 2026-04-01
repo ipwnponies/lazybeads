@@ -155,6 +155,14 @@ Choose how detail content blocks are colored.
 detailContentColorMode: "alternate" # alternate, blue, or gray
 ```
 
+### Detail scroll step
+
+Choose how many lines `.` and `,` scroll in detail mode. Invalid or missing values fall back to `10`.
+
+```yaml
+detailScrollStep: 10
+```
+
 ## Project structure
 
 ```

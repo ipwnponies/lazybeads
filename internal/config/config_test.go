@@ -12,6 +12,7 @@ func TestLoad(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	configContent := `detailContentColorMode: "gray"
+detailScrollStep: 12
 customCommands:
   - key: "D"
     description: "Test command"
@@ -63,6 +64,10 @@ customCommands:
 	if cfg.DetailContentColorMode != "gray" {
 		t.Errorf("expected detail content color mode to be 'gray', got '%s'", cfg.DetailContentColorMode)
 	}
+
+	if cfg.DetailScrollStep != 12 {
+		t.Errorf("expected detail scroll step to be 12, got %d", cfg.DetailScrollStep)
+	}
 }
 
 func TestLoadNoConfig(t *testing.T) {
@@ -83,6 +88,10 @@ func TestLoadNoConfig(t *testing.T) {
 
 	if cfg.DetailContentColorMode != "alternate" {
 		t.Errorf("expected default detail content color mode to be 'alternate', got '%s'", cfg.DetailContentColorMode)
+	}
+
+	if cfg.DetailScrollStep != 10 {
+		t.Errorf("expected default detail scroll step to be 10, got %d", cfg.DetailScrollStep)
 	}
 }
 
@@ -187,5 +196,46 @@ func TestDefaultContext(t *testing.T) {
 	// Should default to "list"
 	if cfg.CustomCommands[0].Context != "list" {
 		t.Errorf("expected default context to be 'list', got '%s'", cfg.CustomCommands[0].Context)
+	}
+}
+
+func TestLoadInvalidDetailScrollStepFallsBackToDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpDir, "lazybeads"), 0755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	configContent := `detailScrollStep: 0
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "lazybeads", "config.yml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	originalUserConfigDir := os.Getenv("XDG_CONFIG_HOME")
+	os.Setenv("XDG_CONFIG_HOME", tmpDir)
+	defer os.Setenv("XDG_CONFIG_HOME", originalUserConfigDir)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	if cfg.DetailScrollStep != 10 {
+		t.Fatalf("expected invalid detail scroll step to fall back to 10, got %d", cfg.DetailScrollStep)
+	}
+
+	configContent = `detailScrollStep: -4
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "lazybeads", "config.yml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to rewrite test config: %v", err)
+	}
+
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("failed to load config with negative scroll step: %v", err)
+	}
+
+	if cfg.DetailScrollStep != 10 {
+		t.Fatalf("expected negative detail scroll step to fall back to 10, got %d", cfg.DetailScrollStep)
 	}
 }
