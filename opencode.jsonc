@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "reviewer_impl": {
+      "permission": {
+        "bash": {
+          "go test ./internal/app": "allow"
+        }
+      }
+    }
+  }
+}
