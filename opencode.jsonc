@@ -23,6 +23,7 @@
   "permission": {
     "bash": {
       "gofmt *": "allow",
+      "go test *": "allow",
     }
   },
 }
