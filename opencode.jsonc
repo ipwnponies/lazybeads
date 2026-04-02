@@ -8,5 +8,10 @@
         }
       }
     }
-  }
+  },
+  "permission": {
+    "bash": {
+      "gofmt *": "allow",
+    }
+  },
 }
