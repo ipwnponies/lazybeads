@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -100,14 +101,15 @@ type Model struct {
 	selected *models.Task
 
 	// UI state
-	mode         ViewMode
-	focusedPanel PanelFocus
-	width        int
-	height       int
-	err          error
-	panelWidth   int
-	detailWidth  int
-	panelAdjust  int
+	mode                  ViewMode
+	focusedPanel          PanelFocus
+	width                 int
+	height                int
+	err                   error
+	panelWidth            int
+	detailWidth           int
+	panelAdjust           int
+	initialLoadInProgress bool
 
 	// Panels (3 vertically stacked)
 	inProgressPanel PanelModel
@@ -115,11 +117,12 @@ type Model struct {
 	closedPanel     PanelModel
 
 	// Components
-	detail       viewport.Model
-	commentsView viewport.Model
-	helpList     list.Model
-	filterText   textinput.Model
-	helpItems    []helpItem
+	detail             viewport.Model
+	commentsView       viewport.Model
+	helpList           list.Model
+	filterText         textinput.Model
+	helpItems          []helpItem
+	initialLoadSpinner spinner.Model
 
 	// Form state
 	formTitle        textinput.Model
@@ -275,12 +278,14 @@ func newModelWithConfig(cfg *config.Config) Model {
 	// Build help list
 	helpItems := buildHelpItems(keys, customCmds)
 	helpList := newHelpList(helpItems)
+	initialLoadSpinner := spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(ui.HelpKeyStyle))
 
 	return Model{
 		client:                 beads.NewClient(),
 		keys:                   keys,
 		help:                   h,
 		mode:                   ViewList,
+		initialLoadInProgress:  true,
 		focusedPanel:           FocusInProgress,
 		inProgressPanel:        inProgressPanel,
 		openPanel:              openPanel,
@@ -290,6 +295,7 @@ func newModelWithConfig(cfg *config.Config) Model {
 		helpList:               helpList,
 		filterText:             filter,
 		helpItems:              helpItems,
+		initialLoadSpinner:     initialLoadSpinner,
 		searchInput:            searchInput,
 		helpFilterInput:        helpFilterInput,
 		formTitle:              formTitle,
@@ -324,7 +330,7 @@ func buildCustomCommandBindings(cmds []config.CustomCommand) []key.Binding {
 
 // Init initializes the application
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.loadTasks(), pollTick())
+	return tea.Batch(m.loadTasks(), pollTick(), m.initialLoadSpinner.Tick)
 }
 
 // Update handles messages
@@ -401,6 +407,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tasksLoadedMsg:
+		m.initialLoadInProgress = false
 		if msg.err != nil {
 			m.err = msg.err
 		}
@@ -513,6 +520,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.commentsView.GotoTop()
 			m.updateCommentsContent()
 		}
+	}
+
+	if m.initialLoadInProgress {
+		var spinnerCmd tea.Cmd
+		m.initialLoadSpinner, spinnerCmd = m.initialLoadSpinner.Update(msg)
+		cmds = append(cmds, spinnerCmd)
 	}
 
 	// Update child components

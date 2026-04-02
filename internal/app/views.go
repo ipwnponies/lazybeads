@@ -17,7 +17,14 @@ func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "Loading..."
 	}
+	if m.initialLoadInProgress {
+		return m.viewInitialLoad()
+	}
 
+	return m.renderActiveView()
+}
+
+func (m Model) renderActiveView() string {
 	switch m.mode {
 	case ViewHelp:
 		return m.viewHelp()
@@ -38,6 +45,17 @@ func (m Model) View() string {
 	default:
 		return m.viewMain()
 	}
+}
+
+func (m Model) viewInitialLoad() string {
+	background := m.viewMain()
+	modal := ui.RenderLoadingModal(
+		m.width,
+		"Loading tasks",
+		m.initialLoadSpinner.View(),
+		"Fetching tasks from beads...",
+	)
+	return ui.RenderOverlay(background, modal, m.width, m.height)
 }
 
 func (m Model) viewMain() string {

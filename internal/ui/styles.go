@@ -168,6 +168,9 @@ var (
 			BorderForeground(ColorPrimary).
 			Padding(1, 2)
 
+	DimmedBackgroundStyle = lipgloss.NewStyle().
+				Faint(true)
+
 	// Error/message styles
 	ErrorStyle = lipgloss.NewStyle().
 			Foreground(ColorDanger).

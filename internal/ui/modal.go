@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // ModalType defines the type of modal
@@ -193,4 +194,135 @@ func (m Modal) View(width, height int) string {
 		lipgloss.Center, lipgloss.Center,
 		modalBox,
 	)
+}
+
+// Dimmed renders content with faint styling even across nested ANSI resets.
+func Dimmed(content string) string {
+	if content == "" {
+		return ""
+	}
+	return "\x1b[2m" + strings.ReplaceAll(content, "\x1b[0m", "\x1b[0m\x1b[2m") + "\x1b[0m"
+}
+
+// RenderMessageModal renders a centered informational modal body.
+func RenderMessageModal(width int, title, body string) string {
+	modalWidth := 60
+	if maxWidth := width - 4; modalWidth > maxWidth {
+		modalWidth = maxWidth
+	}
+	if modalWidth < 24 {
+		modalWidth = 24
+	}
+
+	var content strings.Builder
+	content.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
+	if body != "" {
+		content.WriteString("\n\n")
+		content.WriteString(lipgloss.NewStyle().Foreground(ColorWhite).Render(body))
+	}
+
+	return OverlayStyle.Width(modalWidth).Render(content.String())
+}
+
+// RenderLoadingModal renders a centered loading modal with an activity indicator.
+func RenderLoadingModal(width int, title, indicator, body string) string {
+	modalWidth := 60
+	if maxWidth := width - 4; modalWidth > maxWidth {
+		modalWidth = maxWidth
+	}
+	if modalWidth < 24 {
+		modalWidth = 24
+	}
+
+	var content strings.Builder
+	content.WriteString(lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true).Render(title))
+	content.WriteString("\n\n")
+
+	statusLine := lipgloss.JoinHorizontal(
+		lipgloss.Center,
+		lipgloss.NewStyle().Foreground(ColorAccent).Bold(true).Render(indicator),
+		" ",
+		lipgloss.NewStyle().Foreground(ColorWhite).Render(body),
+	)
+	content.WriteString(statusLine)
+	content.WriteString("\n\n")
+	content.WriteString(lipgloss.NewStyle().Foreground(ColorMuted).Italic(true).Render("The task list will appear as soon as initialization completes."))
+
+	return OverlayStyle.Width(modalWidth).Render(content.String())
+}
+
+// RenderOverlay composites a centered overlay on top of the background.
+func RenderOverlay(background, overlay string, width, height int) string {
+	if width <= 0 || height <= 0 {
+		return overlay
+	}
+
+	bgLines := normalizeLines(background, width, height)
+	ovLines := normalizeLines(overlay, lipgloss.Width(overlay), lipgloss.Height(overlay))
+	ovWidth := lipgloss.Width(overlay)
+	ovHeight := len(ovLines)
+	rendered := make([]string, len(bgLines))
+	for i, line := range bgLines {
+		rendered[i] = Dimmed(line)
+	}
+	if ovWidth <= 0 || ovHeight == 0 {
+		return strings.Join(rendered, "\n")
+	}
+
+	if ovWidth > width {
+		ovWidth = width
+	}
+	if ovHeight > height {
+		ovHeight = height
+		ovLines = ovLines[:ovHeight]
+	}
+
+	x := 0
+	if width > ovWidth {
+		x = (width - ovWidth) / 2
+	}
+	y := 0
+	if height > ovHeight {
+		y = (height - ovHeight) / 2
+	}
+
+	for i := 0; i < ovHeight && y+i < len(bgLines); i++ {
+		overlayLine := fitLine(ovLines[i], ovWidth)
+		backgroundLine := bgLines[y+i]
+		left := Dimmed(ansi.Cut(backgroundLine, 0, x))
+		right := Dimmed(ansi.Cut(backgroundLine, x+ovWidth, width))
+		rendered[y+i] = left + "\x1b[0m" + overlayLine + "\x1b[0m" + right
+	}
+
+	return strings.Join(rendered, "\n")
+}
+
+func normalizeLines(content string, width, height int) []string {
+	lines := strings.Split(content, "\n")
+	if height < 0 {
+		height = 0
+	}
+	if len(lines) > height && height > 0 {
+		lines = lines[:height]
+	}
+	if height > 0 {
+		for len(lines) < height {
+			lines = append(lines, "")
+		}
+	}
+	for i := range lines {
+		lines[i] = fitLine(lines[i], width)
+	}
+	return lines
+}
+
+func fitLine(line string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	line = ansi.Truncate(line, width, "")
+	if pad := width - ansi.StringWidth(line); pad > 0 {
+		line += strings.Repeat(" ", pad)
+	}
+	return line
 }
