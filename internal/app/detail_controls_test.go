@@ -116,6 +116,40 @@ func TestHandleDetailKeys_NonReservedExecutesCustom(t *testing.T) {
 	}
 }
 
+func TestHandleDetailKeys_QReturnsToList(t *testing.T) {
+	m := newDetailTestModel(strings.Repeat("line\n", 40))
+
+	m.handleDetailKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	if m.mode != ViewList {
+		t.Fatalf("expected q to return detail focus to list, got mode %v", m.mode)
+	}
+}
+
+func TestModelUpdate_QInDetailReturnsToListWithoutGlobalQuit(t *testing.T) {
+	m := newDetailTestModel(strings.Repeat("line\n", 40))
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	got := updated.(Model)
+
+	if got.mode != ViewList {
+		t.Fatalf("expected q in detail mode to return to list, got mode %v", got.mode)
+	}
+	assertNotQuitCmd(t, cmd)
+}
+
+func TestModelUpdate_QInListTriggersGlobalQuit(t *testing.T) {
+	m := newListTestModel()
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	got := updated.(Model)
+
+	if got.mode != ViewList {
+		t.Fatalf("expected q in list mode to stay in list while quitting, got mode %v", got.mode)
+	}
+	assertQuitCmd(t, cmd)
+}
+
 func TestDetailWheelUsesViewportPathOnce(t *testing.T) {
 	msg := tea.MouseMsg{X: 0, Y: 0, Button: tea.MouseButtonWheelDown, Action: tea.MouseActionPress}
 
@@ -159,7 +193,7 @@ func TestViewDetailOverlay_ShowsDotCommaWheelHints(t *testing.T) {
 	m.height = 20
 
 	view := m.viewDetailOverlay()
-	for _, want := range []string{".: down", ",: up", "wheel: scroll"} {
+	for _, want := range []string{".: down", ",: up", "wheel: scroll", "enter/esc/q: back"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("expected detail overlay to contain %q, got %q", want, view)
 		}
@@ -171,7 +205,7 @@ func TestRenderStatusBar_DetailModeFilterMarkerCompact(t *testing.T) {
 	m.filterQuery = "urgent"
 
 	status := m.renderStatusBar()
-	for _, want := range []string{".:", ",:", "wheel:", "/:urgent"} {
+	for _, want := range []string{".:", ",:", "wheel:", "enter/esc/q:", "/:urgent"} {
 		if !strings.Contains(status, want) {
 			t.Fatalf("expected detail status to contain %q, got %q", want, status)
 		}
@@ -199,6 +233,32 @@ func newDetailTestModel(description string) Model {
 	m.updateSizes()
 	m.updateDetailContent()
 	return m
+}
+
+func newListTestModel() Model {
+	m := newModelWithConfig(&config.Config{})
+	m.mode = ViewList
+	return m
+}
+
+func assertNotQuitCmd(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	if cmd == nil {
+		return
+	}
+	if _, ok := cmd().(tea.QuitMsg); ok {
+		t.Fatal("expected command to avoid global quit")
+	}
+}
+
+func assertQuitCmd(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("expected global quit command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("expected command to trigger global quit")
+	}
 }
 
 func TestNewModelWithConfig_UsesConfiguredDetailScrollStep(t *testing.T) {

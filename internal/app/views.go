@@ -110,7 +110,7 @@ func (m Model) viewDetailOverlay() string {
 		Render(m.detail.View())
 	b.WriteString(content)
 	b.WriteString("\n")
-	b.WriteString(ui.HelpBarStyle.Render(".: down  ,: up  wheel: scroll  m: comments  enter/esc: back  ?: help"))
+	b.WriteString(ui.HelpBarStyle.Render(".: down  ,: up  wheel: scroll  m: comments  enter/esc/q: back  ?: help"))
 
 	return b.String()
 }
@@ -245,7 +245,7 @@ func (m Model) renderStatusBar() string {
 			ui.HelpKeyStyle.Render(",")+":"+ui.HelpDescStyle.Render("up"),
 			ui.HelpKeyStyle.Render("wheel")+":"+ui.HelpDescStyle.Render("scroll"),
 			ui.HelpKeyStyle.Render("m")+":"+ui.HelpDescStyle.Render("comments"),
-			ui.HelpKeyStyle.Render("enter/esc")+":"+ui.HelpDescStyle.Render("back"),
+			ui.HelpKeyStyle.Render("enter/esc/q")+":"+ui.HelpDescStyle.Render("back"),
 			ui.HelpKeyStyle.Render("?")+":"+ui.HelpDescStyle.Render("help"),
 		)
 		if m.filterQuery != "" {

@@ -214,7 +214,7 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 
 func (m *Model) handleDetailKeys(msg tea.KeyMsg) tea.Cmd {
 	switch {
-	case key.Matches(msg, m.keys.Cancel), key.Matches(msg, m.keys.Select):
+	case key.Matches(msg, m.keys.Cancel), key.Matches(msg, m.keys.Select), key.Matches(msg, m.keys.Quit):
 		m.mode = ViewList
 	case key.Matches(msg, m.keys.Help):
 		m.mode = ViewHelp
