@@ -7,6 +7,17 @@
           "go test ./internal/app": "allow"
         }
       }
+    },
+    "qa": {
+      "permission": {
+        // Allow QA to create scripts in /tmp
+        "edit": {
+          "/tmp/": "allow"
+        },
+        "read": {
+          "/tmp/": "allow"
+        },
+      }
     }
   },
   "permission": {
