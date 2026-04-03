@@ -63,6 +63,48 @@ const (
 	editorFieldAcceptance  editorField = "acceptance_criteria"
 )
 
+var bulkEditorFields = []editorField{
+	editorFieldDescription,
+	editorFieldNotes,
+	editorFieldDesign,
+	editorFieldAcceptance,
+}
+
+type editorValues struct {
+	Description        string
+	Notes              string
+	Design             string
+	AcceptanceCriteria string
+}
+
+func (v editorValues) valueFor(field editorField) string {
+	switch field {
+	case editorFieldDescription:
+		return v.Description
+	case editorFieldNotes:
+		return v.Notes
+	case editorFieldDesign:
+		return v.Design
+	case editorFieldAcceptance:
+		return v.AcceptanceCriteria
+	default:
+		return ""
+	}
+}
+
+func (v *editorValues) set(field editorField, value string) {
+	switch field {
+	case editorFieldDescription:
+		v.Description = value
+	case editorFieldNotes:
+		v.Notes = value
+	case editorFieldDesign:
+		v.Design = value
+	case editorFieldAcceptance:
+		v.AcceptanceCriteria = value
+	}
+}
+
 // PanelFocus represents which panel is focused
 type PanelFocus int
 
@@ -125,20 +167,20 @@ type Model struct {
 	initialLoadSpinner spinner.Model
 
 	// Form state
-	formTitle        textinput.Model
-	formDesc         textarea.Model
-	formNotes        textarea.Model
-	formDesign       textarea.Model
-	formAcceptance   textarea.Model
-	formPriority     int
-	formType         string
-	formFocus        int
-	formSubmitBounds formBounds
-	editing          bool
-	editingID        string
-	editorField      editorField
-	editorTargetID   string
-	editorTargetForm bool
+	formTitle         textinput.Model
+	formDesc          textarea.Model
+	formNotes         textarea.Model
+	formDesign        textarea.Model
+	formAcceptance    textarea.Model
+	formPriority      int
+	formType          string
+	formFocus         int
+	formSubmitBounds  formBounds
+	editing           bool
+	editingID         string
+	editorTargetID    string
+	editorTargetForm  bool
+	editorReturnFocus int
 
 	// Confirmation
 	confirmMsg    string
@@ -447,11 +489,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case editorFinishedMsg:
 		targetID := m.editorTargetID
-		field := m.editorField
 		targetForm := m.editorTargetForm
+		returnFocus := m.editorReturnFocus
 		m.editorTargetID = ""
-		m.editorField = ""
 		m.editorTargetForm = false
+		m.editorReturnFocus = 0
 
 		if msg.err != nil {
 			m.err = msg.err
@@ -464,23 +506,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if targetForm {
-			m.applyEditorContentToForm(field, msg.content)
+			m.applyEditorContentToForm(msg.values, returnFocus)
 			m.mode = ViewForm
 			break
 		}
 
 		if targetID != "" {
 			return m, func() tea.Msg {
-				opts := beads.UpdateOptions{}
-				switch field {
-				case editorFieldDescription:
-					opts.Description = msg.content
-				case editorFieldNotes:
-					opts.Notes = msg.content
-				case editorFieldDesign:
-					opts.Design = msg.content
-				case editorFieldAcceptance:
-					opts.AcceptanceCriteria = msg.content
+				opts := beads.UpdateOptions{
+					Description:        stringPtr(msg.values.Description),
+					Notes:              stringPtr(msg.values.Notes),
+					Design:             stringPtr(msg.values.Design),
+					AcceptanceCriteria: stringPtr(msg.values.AcceptanceCriteria),
 				}
 				err := m.client.Update(targetID, opts)
 				return taskUpdatedMsg{err: err}

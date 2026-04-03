@@ -138,23 +138,23 @@ func DefaultKeyMap() KeyMap {
 		),
 		EditDescription: key.NewBinding(
 			key.WithKeys("d"),
-			key.WithHelp("d", "edit description"),
+			key.WithHelp("d", "edit task in editor"),
 		),
 		EditNotes: key.NewBinding(
 			key.WithKeys("N"),
-			key.WithHelp("N", "edit notes"),
+			key.WithHelp("N", "edit task in editor"),
 		),
 		EditDesign: key.NewBinding(
 			key.WithKeys("D"),
-			key.WithHelp("D", "edit design"),
+			key.WithHelp("D", "edit task in editor"),
 		),
 		EditAcceptance: key.NewBinding(
 			key.WithKeys("C"),
-			key.WithHelp("C", "edit acceptance criteria"),
+			key.WithHelp("C", "edit task in editor"),
 		),
 		EditFormField: key.NewBinding(
 			key.WithKeys("ctrl+e"),
-			key.WithHelp("^e", "edit field in editor"),
+			key.WithHelp("^e", "edit form in editor"),
 		),
 
 		// Filtering

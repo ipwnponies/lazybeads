@@ -120,42 +120,18 @@ func (m *Model) updateFormFocus() {
 	}
 }
 
-func (m *Model) applyEditorContentToForm(field editorField, content string) {
-	focus, ok := formFocusForEditorField(field)
-	if !ok {
-		m.err = fmt.Errorf("unsupported form field for editor: %s", field)
-		return
-	}
+func (m *Model) applyEditorContentToForm(values editorValues, focus int) {
+	m.formDesc.SetValue(values.Description)
+	m.formNotes.SetValue(values.Notes)
+	m.formDesign.SetValue(values.Design)
+	m.formAcceptance.SetValue(values.AcceptanceCriteria)
 
-	switch field {
-	case editorFieldDescription:
-		m.formDesc.SetValue(content)
-	case editorFieldNotes:
-		m.formNotes.SetValue(content)
-	case editorFieldDesign:
-		m.formDesign.SetValue(content)
-	case editorFieldAcceptance:
-		m.formAcceptance.SetValue(content)
+	if focus < 0 || focus >= formFieldCount {
+		focus = 1
 	}
-
 	m.formFocus = focus
 	m.updateFormFocus()
 	m.updateFormTextAreaHeights()
-}
-
-func formFocusForEditorField(field editorField) (int, bool) {
-	switch field {
-	case editorFieldDescription:
-		return 1, true
-	case editorFieldNotes:
-		return 2, true
-	case editorFieldDesign:
-		return 3, true
-	case editorFieldAcceptance:
-		return 4, true
-	default:
-		return 0, false
-	}
 }
 
 func (m *Model) updateFormTextAreaHeights() {

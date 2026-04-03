@@ -14,7 +14,7 @@ Navigate, create, and manage your project issues without leaving the terminal.
 - **Quick editing** - Edit title, status, priority, or type with single keystrokes
 - **Filter & search** - Use `/` to filter issues by title or ID
 - **Detail view** - Press `Enter` to see full issue details
-- **External editor** - Edit descriptions with `$EDITOR` (defaults to nano)
+- **External editor** - Edit task text fields in one `$EDITOR` buffer (defaults to nano)
 - **Custom commands** - Define your own keybindings for workflows
 
 ## Installation
@@ -86,7 +86,10 @@ lazybeads --check
 | `s` | Edit status |
 | `p` | Edit priority |
 | `T` | Edit type |
-| `d` or `e` | Edit description (opens $EDITOR) |
+| `d` | Edit task text fields (opens `$EDITOR`) |
+| `N` | Edit notes in the same `$EDITOR` buffer |
+| `D` | Edit design in the same `$EDITOR` buffer |
+| `C` | Edit acceptance criteria in the same `$EDITOR` buffer |
 | `m` | View comments timeline |
 | `y` | Copy issue ID to clipboard |
 
@@ -94,7 +97,7 @@ lazybeads --check
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+e` | Edit focused field (opens $EDITOR) |
+| `Ctrl+e` | Edit form text fields (opens `$EDITOR`) |
 | `Tab` / `Shift+Tab` | Next / previous field |
 | `Alt+Enter` | Focus submit |
 | `Esc` | Cancel |

@@ -165,22 +165,22 @@ func (m *Model) handleListKeys(msg tea.KeyMsg) tea.Cmd {
 
 	case key.Matches(msg, m.keys.EditDescription):
 		if task := m.getSelectedTask(); task != nil {
-			return m.editDescriptionInEditor(task)
+			return m.editTaskInEditor(task)
 		}
 
 	case key.Matches(msg, m.keys.EditNotes):
 		if task := m.getSelectedTask(); task != nil {
-			return m.editFieldInEditor(task, editorFieldNotes, task.Notes)
+			return m.editTaskInEditor(task)
 		}
 
 	case key.Matches(msg, m.keys.EditDesign):
 		if task := m.getSelectedTask(); task != nil {
-			return m.editFieldInEditor(task, editorFieldDesign, task.Design)
+			return m.editTaskInEditor(task)
 		}
 
 	case key.Matches(msg, m.keys.EditAcceptance):
 		if task := m.getSelectedTask(); task != nil {
-			return m.editFieldInEditor(task, editorFieldAcceptance, task.AcceptanceCriteria)
+			return m.editTaskInEditor(task)
 		}
 
 	case key.Matches(msg, m.keys.Filter):
@@ -501,37 +501,40 @@ func (m *Model) handleFilterKeys(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m *Model) editDescriptionInEditor(task *models.Task) tea.Cmd {
-	return m.editFieldInEditor(task, editorFieldDescription, task.Description)
+	return m.editTaskInEditor(task)
 }
 
 func (m *Model) editFocusedFormFieldInEditor() tea.Cmd {
-	switch m.formFocus {
-	case 1:
-		return m.editFormFieldInEditor(editorFieldDescription, m.formDesc.Value())
-	case 2:
-		return m.editFormFieldInEditor(editorFieldNotes, m.formNotes.Value())
-	case 3:
-		return m.editFormFieldInEditor(editorFieldDesign, m.formDesign.Value())
-	case 4:
-		return m.editFormFieldInEditor(editorFieldAcceptance, m.formAcceptance.Value())
-	default:
-		m.err = fmt.Errorf("external editor only works for description, notes, design, or acceptance criteria")
-		return nil
-	}
+	return m.editFormInEditor()
 }
 
-func (m *Model) editFieldInEditor(task *models.Task, field editorField, content string) tea.Cmd {
-	return m.startExternalEditor(field, content, task.ID, false)
+func (m *Model) editTaskInEditor(task *models.Task) tea.Cmd {
+	return m.startExternalEditor(editorValues{
+		Description:        task.Description,
+		Notes:              task.Notes,
+		Design:             task.Design,
+		AcceptanceCriteria: task.AcceptanceCriteria,
+	}, task.ID, false, 0)
 }
 
-func (m *Model) editFormFieldInEditor(field editorField, content string) tea.Cmd {
-	return m.startExternalEditor(field, content, "", true)
+func (m *Model) editFormInEditor() tea.Cmd {
+	return m.startExternalEditor(editorValues{
+		Description:        m.formDesc.Value(),
+		Notes:              m.formNotes.Value(),
+		Design:             m.formDesign.Value(),
+		AcceptanceCriteria: m.formAcceptance.Value(),
+	}, "", true, m.formFocus)
 }
 
-func (m *Model) startExternalEditor(field editorField, content string, targetID string, targetForm bool) tea.Cmd {
+func (m *Model) startExternalEditor(values editorValues, targetID string, targetForm bool, returnFocus int) tea.Cmd {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {
 		editor = "nano"
+	}
+	editorArgs, err := parseEditorCommand(editor)
+	if err != nil {
+		m.err = err
+		return nil
 	}
 
 	// Create temp file with .md extension for syntax highlighting
@@ -541,7 +544,7 @@ func (m *Model) startExternalEditor(field editorField, content string, targetID 
 		return nil
 	}
 
-	editorContent := wrapEditorContent(field, content, targetID, targetForm)
+	editorContent := wrapEditorContent(values, targetID, targetForm)
 
 	// Write current content to temp file
 	if _, err := tmpfile.WriteString(editorContent); err != nil {
@@ -552,12 +555,13 @@ func (m *Model) startExternalEditor(field editorField, content string, targetID 
 	}
 	tmpfile.Close()
 
-	m.editorField = field
 	m.editorTargetID = targetID
 	m.editorTargetForm = targetForm
+	m.editorReturnFocus = returnFocus
 
 	tmpPath := tmpfile.Name()
-	c := exec.Command(editor, tmpPath)
+	commandArgs := append(editorArgs[1:], tmpPath)
+	c := exec.Command(editorArgs[0], commandArgs...)
 
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		defer os.Remove(tmpPath)
@@ -568,32 +572,230 @@ func (m *Model) startExternalEditor(field editorField, content string, targetID 
 		if readErr != nil {
 			return editorFinishedMsg{err: readErr}
 		}
-		return editorFinishedMsg{content: stripEditorMetadata(string(content))}
+		values, parseErr := parseEditorContent(string(content))
+		if parseErr != nil {
+			return editorFinishedMsg{err: parseErr}
+		}
+		return editorFinishedMsg{values: values}
 	})
 }
 
-func wrapEditorContent(field editorField, content, targetID string, targetForm bool) string {
+func wrapEditorContent(values editorValues, targetID string, targetForm bool) string {
 	var b strings.Builder
-	_ = targetID
-	_ = targetForm
-	fmt.Fprintf(&b, "# Form field: %s\n", editorFieldLabel(field))
-	b.WriteString("# Comments are ignored\n\n")
-	b.WriteString(content)
+	if targetForm {
+		b.WriteString("<!-- lazybeads:bulk-editor form -->\n")
+		b.WriteString("# Edit the task form fields in one buffer.\n")
+	} else {
+		fmt.Fprintf(&b, "<!-- lazybeads:bulk-editor task=%s -->\n", targetID)
+		fmt.Fprintf(&b, "# Edit task %s in one buffer.\n", targetID)
+	}
+	b.WriteString("<!-- Keep the lb:start/lb:end comments. Everything between them is saved as-is. -->\n\n")
+	for _, field := range bulkEditorFields {
+		value := values.valueFor(field)
+		fmt.Fprintf(&b, "# %s\n", editorFieldLabel(field))
+		fmt.Fprintf(&b, "%s\n", editorSectionStart(field, !strings.HasSuffix(value, "\n")))
+		b.WriteString(escapeEditorSectionContent(value))
+		if !strings.HasSuffix(value, "\n") {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "%s\n\n", editorSectionEnd(field))
+	}
+	return strings.TrimRight(b.String(), "\n") + "\n"
+}
+
+func parseEditorContent(content string) (editorValues, error) {
+	var values editorValues
+	var currentField editorField
+	seen := make(map[editorField]bool, len(bulkEditorFields))
+	trimTrailingNewline := make(map[editorField]bool, len(bulkEditorFields))
+	sections := make(map[editorField]*strings.Builder, len(bulkEditorFields))
+	for _, field := range bulkEditorFields {
+		sections[field] = &strings.Builder{}
+	}
+
+	for _, line := range strings.Split(content, "\n") {
+		if field, trim, ok := editorFieldFromStartMarker(line); ok {
+			if currentField != "" {
+				return editorValues{}, fmt.Errorf("missing closing marker for %s", editorFieldLabel(currentField))
+			}
+			if seen[field] {
+				return editorValues{}, fmt.Errorf("duplicate editor section for %s", editorFieldLabel(field))
+			}
+			currentField = field
+			seen[field] = true
+			trimTrailingNewline[field] = trim
+			continue
+		}
+		if field, ok := editorFieldFromEndMarker(line); ok {
+			if currentField != field {
+				return editorValues{}, fmt.Errorf("invalid editor section marker order for %s", editorFieldLabel(field))
+			}
+			currentField = ""
+			continue
+		}
+		if currentField == "" {
+			continue
+		}
+		line = unescapeEditorSectionLine(line)
+		sections[currentField].WriteString(line)
+		sections[currentField].WriteString("\n")
+	}
+
+	if currentField != "" {
+		return editorValues{}, fmt.Errorf("missing closing marker for %s", editorFieldLabel(currentField))
+	}
+	for _, field := range bulkEditorFields {
+		if !seen[field] {
+			return editorValues{}, fmt.Errorf("missing editor section for %s", editorFieldLabel(field))
+		}
+		section := sections[field].String()
+		if trimTrailingNewline[field] {
+			section = strings.TrimSuffix(section, "\n")
+		}
+		values.set(field, section)
+	}
+	return values, nil
+}
+
+func parseEditorCommand(editor string) ([]string, error) {
+	var args []string
+	var current strings.Builder
+	var quote rune
+	escaped := false
+	tokenStarted := false
+
+	flush := func() {
+		if !tokenStarted {
+			return
+		}
+		args = append(args, current.String())
+		current.Reset()
+		tokenStarted = false
+	}
+
+	for _, r := range editor {
+		switch {
+		case escaped:
+			current.WriteRune(r)
+			escaped = false
+			tokenStarted = true
+		case r == '\\' && quote != '\'':
+			tokenStarted = true
+			escaped = true
+		case quote != 0:
+			if r == quote {
+				quote = 0
+				continue
+			}
+			current.WriteRune(r)
+			tokenStarted = true
+		case r == '\'' || r == '"':
+			quote = r
+			tokenStarted = true
+		case r == ' ' || r == '\t' || r == '\n':
+			flush()
+		default:
+			current.WriteRune(r)
+			tokenStarted = true
+		}
+	}
+	if escaped || quote != 0 {
+		return nil, fmt.Errorf("$EDITOR has unterminated quoting")
+	}
+	flush()
+	if len(args) == 0 {
+		return nil, fmt.Errorf("$EDITOR is empty")
+	}
+	return args, nil
+}
+
+func editorSectionStart(field editorField, trimTrailingNewline bool) string {
+	if trimTrailingNewline {
+		return fmt.Sprintf("<!-- lb:start %s trim=1 -->", field)
+	}
+	return fmt.Sprintf("<!-- lb:start %s -->", field)
+}
+
+func editorSectionEnd(field editorField) string {
+	return fmt.Sprintf("<!-- lb:end %s -->", field)
+}
+
+func editorFieldFromStartMarker(line string) (editorField, bool, bool) {
+	const prefix = "<!-- lb:start "
+	const suffix = " -->"
+	if !strings.HasPrefix(line, prefix) || !strings.HasSuffix(line, suffix) {
+		return "", false, false
+	}
+	body := strings.TrimSuffix(strings.TrimPrefix(line, prefix), suffix)
+	parts := strings.Fields(body)
+	if len(parts) == 0 {
+		return "", false, false
+	}
+	field := editorField(parts[0])
+	if !isBulkEditorField(field) {
+		return "", false, false
+	}
+	trim := len(parts) > 1 && parts[1] == "trim=1"
+	return field, trim, true
+}
+
+func editorFieldFromEndMarker(line string) (editorField, bool) {
+	for _, field := range bulkEditorFields {
+		if line == editorSectionEnd(field) {
+			return field, true
+		}
+	}
+	return "", false
+}
+
+func isBulkEditorField(field editorField) bool {
+	for _, candidate := range bulkEditorFields {
+		if field == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
+
+func escapeEditorSectionContent(value string) string {
+	parts := strings.SplitAfter(value, "\n")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, part := range parts {
+		line := strings.TrimSuffix(part, "\n")
+		if strings.HasPrefix(line, "\\") || isEditorMarkerLine(line) {
+			b.WriteString("\\")
+		}
+		b.WriteString(line)
+		if strings.HasSuffix(part, "\n") {
+			b.WriteString("\n")
+		}
+	}
 	return b.String()
 }
 
-func stripEditorMetadata(content string) string {
-	lines := strings.Split(content, "\n")
-	if len(lines) < 2 {
-		return content
+func unescapeEditorSectionLine(line string) string {
+	if strings.HasPrefix(line, "\\") {
+		return strings.TrimPrefix(line, "\\")
 	}
+	return line
+}
 
-	if !strings.HasPrefix(lines[0], "# Form field: ") || lines[1] != "# Comments are ignored" {
-		return content
+func isEditorMarkerLine(line string) bool {
+	if _, _, ok := editorFieldFromStartMarker(line); ok {
+		return true
 	}
-
-	result := strings.Join(lines[2:], "\n")
-	return strings.TrimLeft(result, "\n")
+	if _, ok := editorFieldFromEndMarker(line); ok {
+		return true
+	}
+	return false
 }
 
 func editorFieldLabel(field editorField) string {

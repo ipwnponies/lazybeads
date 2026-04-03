@@ -317,10 +317,10 @@ type UpdateOptions struct {
 	Title              string
 	Assignee           string
 	Type               string
-	Description        string
-	Notes              string
-	Design             string
-	AcceptanceCriteria string
+	Description        *string
+	Notes              *string
+	Design             *string
+	AcceptanceCriteria *string
 }
 
 // Update modifies an existing task
@@ -342,21 +342,20 @@ func (c *Client) Update(id string, opts UpdateOptions) error {
 	if opts.Type != "" {
 		args = append(args, "--type", opts.Type)
 	}
-	if opts.Description != "" {
-		args = append(args, "-d", opts.Description)
+	if opts.Description != nil {
+		args = append(args, "-d", *opts.Description)
 	}
-	if opts.Notes != "" {
-		args = append(args, "--notes", opts.Notes)
+	if opts.Notes != nil {
+		args = append(args, "--notes", *opts.Notes)
 	}
-	if opts.Design != "" {
-		args = append(args, "--design", opts.Design)
+	if opts.Design != nil {
+		args = append(args, "--design", *opts.Design)
 	}
-	if opts.AcceptanceCriteria != "" {
-		args = append(args, "--acceptance", opts.AcceptanceCriteria)
+	if opts.AcceptanceCriteria != nil {
+		args = append(args, "--acceptance", *opts.AcceptanceCriteria)
 	}
 
-	cmd := exec.Command("bd", args...)
-	if err := cmd.Run(); err != nil {
+	if _, err := c.output(args...); err != nil {
 		return fmt.Errorf("bd update failed: %w", err)
 	}
 

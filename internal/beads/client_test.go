@@ -396,3 +396,31 @@ func TestClient_Ready_ParsesEnvelopeAndTypeAlias(t *testing.T) {
 		t.Fatalf("expected assignee owner@example.com, got %s", tasks[0].Assignee)
 	}
 }
+
+func TestClient_Update_IncludesEmptyBulkEditFields(t *testing.T) {
+	var calls []string
+	client := newStubClient(t, map[string]stubCommandResult{
+		"update task-4 -d  --notes notes --design  --acceptance acceptance": {},
+	}, &calls)
+
+	description := ""
+	notes := "notes"
+	design := ""
+	acceptance := "acceptance"
+	err := client.Update("task-4", UpdateOptions{
+		Description:        &description,
+		Notes:              &notes,
+		Design:             &design,
+		AcceptanceCriteria: &acceptance,
+	})
+	if err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 command call, got %d", len(calls))
+	}
+	if calls[0] != "update task-4 -d  --notes notes --design  --acceptance acceptance" {
+		t.Fatalf("unexpected command call: %q", calls[0])
+	}
+}
